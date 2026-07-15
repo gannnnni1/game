@@ -172,7 +172,7 @@
                 });
         }
 
-        // --- 5. AMBIL DATA DARI CLOUD (BERANTAI: 5-10 METER DARI MONSTER SEBELUMNYA) ---
+        // --- 5. AMBIL DATA DARI CLOUD (PERBAIKAN TYPO S) ---
         async function muatSoalCloud() {
             try {
                 let res = await fetch(API_URL);
@@ -188,19 +188,17 @@
                     let finalLat, finalLon;
 
                     if (i === 0) {
-                        // MONSTER PERTAMA: Dikunci tepat di tempat siswa berdiri saat ini (0 Meter)
                         finalLat = centerLat;
                         finalLon = centerLon;
                     } else {
-                        // KOREKSI PRESISI DERAJAT REGIONAL MATARAM:
-                        const konversiLat = 111000; // 1 derajat lat ~ 111.000 meter
-                        const konversiLon = 109800; // 1 derajat lon ~ 109.800 meter
+                        const konversiLat = 111000;
+                        const konversiLon = 109800; // Pastikan ini tanpa huruf s tambahan
                         
                         let sudut = Math.random() * 2 * Math.PI;
-                        let jarakMeter = 5 + Math.random() * 5; // Jarak ketat 5 - 10 meter
+                        let jarakMeter = 5 + Math.random() * 5; 
 
                         let deltaLat = (jarakMeter * Math.sin(sudut)) / konversiLat;
-                        let deltaLon = (jarakMeter * Math.cos(sudut)) / konversionsLon;
+                        let deltaLon = (jarakMeter * Math.cos(sudut)) / konversiLon; // DIBERSIHKAN DISINI
 
                         finalLat = refLat + deltaLat;
                         finalLon = refLon + deltaLon;
@@ -215,7 +213,6 @@
                         kalah: false
                     });
 
-                    // Geser titik acuan untuk monster berikutnya (sistem berantai)
                     refLat = finalLat;
                     refLon = finalLon;
                 }
