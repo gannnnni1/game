@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perburuan Harta Karun Matematika</title>
+    <style>
+        /* Gaya tampilan sederhana agar muat di layar HP */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            text-align: center;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        .box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Gua Limit: Perburuan Harta</h1>
+        
+        <div class="box">
+            <h3>Status GPS Kamu</h3>
+            <p id="status-gps">Mencari lokasi...</p>
+        </div>
+
+        <div class="box" id="game-box" style="display: none;">
+            <h2>Harta Karun Ditemukan! 🎁</h2>
+            <p id="soal">Menyiapkan soal...</p>
+            <input type="number" id="jawaban" placeholder="Masukkan angka..." style="padding: 8px; font-size: 16px; width: 80%; margin-bottom: 15px;"><br>
+            <button onclick="cekJawaban()">Kirim Jawaban</button>
+        </div>
+
+        <div class="box" id="info-jarak">
+            <p>Berjalanlah untuk mendekati koordinat harta karun!</p>
+            <p><strong>Jarak ke harta:</strong> <span id="jarak-text">-</span> meter</p>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. KOORDINAT TARGET HARTA KARUN ---
+        // Ganti angka ini dengan koordinat rumah, sekolah, atau taman terdekatmu!
+        // Kamu bisa cari koordinat ini lewat Google Maps.
+        const targetLatitude = -6.200000;  // Contoh koordinat Jakarta
+        const targetLongitude = 106.816666; 
+
+        // --- 2. BANK SOAL MATEMATIKA ---
+        const bankSoal = [
+            { tanya: "Berapakah nilai dari lim (x->3) dari (x^2 - 9)/(x - 3)?", jawab: 6 },
+            { tanya: "Berapakah nilai dari lim (x->0) dari sin(4x) / (2x)?", jawab: 2 },
+            { tanya: "Jika f(x) = 3x^2 - 5, berapakah turunan pertama f'(2)?", jawab: 12 }
+        ];
+
+        let soalAktif = null;
+
+        // --- 3. DETEKSI LOKASI GPS ---
+        if (navigator.geolocation) {
+            // Memantau pergerakan GPS secara real-time
+            navigator.geolocation.watchPosition(updateLokasi, errorGPS, {
+                enableHighAccuracy: true // Meminta akurasi tinggi
+            });
+        } else {
+            document.getElementById("status-gps").innerHTML = "GPS tidak didukung oleh browser ini.";
+        }
+
+        function updateLokasi(position) {
+            const userLat = position.coords.latitude;
+            const userLon = position.coords.longitude;
+
+            document.getElementById("status-gps").innerHTML = `Lat: ${userLat.toFixed(6)}, Lon: ${userLon.toFixed(6)}`;
+
+            // Hitung jarak antara pemain dan harta karun (menggunakan rumus Haversine)
+            const jarak = hitungJarak(userLat, userLon, targetLatitude, targetLongitude);
+            document.getElementById("jarak-text").innerText = jarak.toFixed(1);
+
+            // Jika jarak kurang dari 10 meter, munculkan peti harta karun/soal!
+            if (jarak <= 10) {
+                if (!soalAktif) {
+                    munculkanSoal();
+                }
+            } else {
+                // Sembunyikan jika menjauh
+                document.getElementById("game-box").style.display = "none";
+                soalAktif = null;
+            }
+        }
+
+        function errorGPS(err) {
+            document.getElementById("status-gps").innerHTML = "Gagal mengakses GPS. Pastikan izin lokasi aktif!";
+            console.warn(`ERROR(${err.code}): ${err.message}`);
+        }
+
+        // --- 4. RUMUS MATEMATIKA HITUNG JARAK (GPS KOORDINAT) ---
+        function hitungJarak(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Jari-jari bumi dalam meter
+            const phi1 = lat1 * Math.PI/180;
+            const phi2 = lat2 * Math.PI/180;
+            const deltaPhi = (lat2-lat1) * Math.PI/180;
+            const deltaLambda = (lon2-lon1) * Math.PI/180;
+
+            const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+                      Math.cos(phi1) * Math.cos(phi2) *
+                      Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c; // Hasil dalam satuan meter
+        }
+
+        // --- 5. LOGIKA GAME ---
+        function munculkanSoal() {
+            // Pilih soal acak
+            const indeksAcak = Math.floor(Math.random() * bankSoal.length);
+            soalAktif = bankSoal[indeksAcak];
+
+            document.getElementById("soal").innerText = soalAktif.tanya;
+            document.getElementById("game-box").style.display = "block";
+        }
+
+        function cekJawaban() {
+            const jawabanUser = parseFloat(document.getElementById("jawaban").value);
+            if (isNaN(jawabanUser)) {
+                alert("Masukkan jawaban berupa angka!");
+                return;
+            }
+
+            if (Math.abs(jawabanUser - soalAktif.jawab) < 0.01) {
+                alert("🎉 LUAR BIASA! Jawabanmu benar. Harta karun berhasil dibuka!");
+                document.getElementById("game-box").style.display = "none";
+                soalAktif = null; // Reset soal
+            } else {
+                alert("❌ Jawaban salah. Coba hitung lagi!");
+            }
+        }
+    </script>
+</body>
+</html>
