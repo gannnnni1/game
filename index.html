@@ -34,24 +34,74 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 1px solid #4a5568;
         }
 
-        /* RADAR HUD TRANSPARAN DI ATAS KAMERA */
-        .radar-box {
-            background: rgba(26, 32, 44, 0.85);
-            padding: 15px; border-radius: 12px; 
-            border: 2px solid #4299e1; margin-bottom: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            backdrop-filter: blur(3px);
-            transition: border-color 0.3s ease;
+        /* SONAR RADAR BAWAH LAUT */
+        .sonar-container {
+            background: rgba(10, 25, 20, 0.9); /* Nuansa hijau kapal selam */
+            padding: 15px; border-radius: 16px; 
+            border: 2px solid #00ff66; margin-bottom: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 102, 0.3);
+            backdrop-filter: blur(5px);
+            display: flex; flex-direction: column; align-items: center;
         }
-        
-        .radar-ping {
-            font-size: 35px; display: inline-block;
-            animation: pulse 1.5s infinite;
+
+        .sonar-screen {
+            position: relative;
+            width: 160px; height: 160px;
+            border-radius: 50%;
+            border: 2px solid #00ff66;
+            background: radial-gradient(circle, rgba(0,255,102,0.15) 0%, rgba(0,0,0,0.8) 80%);
+            overflow: hidden;
+            margin: 10px 0;
         }
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.2); opacity: 0.5; }
-            100% { transform: scale(1); opacity: 1; }
+
+        /* Garis menyapu khas radar */
+        .sonar-sweep {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: conic-gradient(from 0deg, rgba(0,255,102,0.4) 0deg, transparent 90deg);
+            border-radius: 50%;
+            animation: sweep-rotation 4s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes sweep-rotation {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Lingkaran cincin jarak radar */
+        .sonar-ring {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            border: 1px dashed rgba(0, 255, 102, 0.3);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .ring-1 { width: 50px; height: 50px; }
+        .ring-2 { width: 100px; height: 100px; }
+
+        /* Titik monster di radar */
+        .sonar-blip {
+            position: absolute;
+            width: 10px; height: 10px;
+            background-color: #ff3333; /* Monster belum kalah berwarna merah */
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 8px #ff3333;
+            animation: blip-blink 1.5s infinite;
+        }
+        @keyframes blip-blink {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+
+        /* Titik posisi pemain di tengah radar */
+        .player-blip {
+            position: absolute; top: 50%; left: 50%;
+            width: 8px; height: 8px;
+            background-color: #00ffbb;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px #00ffbb;
         }
 
         /* Monster Mengambang Nyata di Tengah Kamera */
@@ -82,7 +132,7 @@
         }
         button {
             background: #e53e3e; color: white; border: none; padding: 12px;
-            font-size: 16px; font-weight: bold; border-radius: 6px; width: 87%; cursor: pointer;
+            font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer;
             text-transform: uppercase; letter-spacing: 1px;
         }
         button:hover { background: #c53030; }
@@ -108,22 +158,38 @@
             </div>
         </div>
 
-        <!-- Bagian Bawah: Radar Pelacak Transparan -->
-        <div class="ui-element radar-box" id="radar-area">
-            <div class="radar-ping">📡</div>
-            <div style="font-weight: bold; color: #4299e1; margin-top: 5px;">RADAR DETEKSI MONSTER</div>
-            <p id="jarak-text" style="font-size: 26px; font-weight: bold; color: #ed8936; margin: 5px 0;">Menunggu GPS...</p>
-            <p id="petunjuk-text" style="font-size: 12px; color: #a0aec0; margin: 0;">Izinkan akses lokasi. Sistem sedang mengunci titik awal permainan.</p>
+        <!-- Bagian Bawah: Radar Sonar Kapal Selam -->
+        <div class="ui-element sonar-container">
+            <div style="font-weight: bold; color: #00ff66; font-size: 14px; letter-spacing: 1px;">📡 SONAR TACTICAL RADAR</div>
+            
+            <!-- Layar Sonar Lingkaran -->
+            <div class="sonar-screen" id="sonar-screen">
+                <div class="sonar-sweep"></div>
+                <div class="sonar-ring ring-1"></div>
+                <div class="sonar-ring ring-2"></div>
+                <!-- Titik pemain di tengah -->
+                <div class="player-blip"></div>
+                <!-- Wadah titik monster dinamis -->
+                <div id="sonar-monsters-container"></div>
+            </div>
+
+            <p id="jarak-text" style="font-size: 20px; font-weight: bold; color: #00ff66; margin: 2px 0;">Menunggu GPS...</p>
+            <p id="petunjuk-text" style="font-size: 11px; color: #a0aec0; margin: 0; text-align: center;">Sonar aktif. Titik merah menunjukkan posisi monster di sekitarmu.</p>
         </div>
     </div>
 
-    <!-- Pop-up Soal Matematika -->
+    <!-- Pop-up Soal Matematika (Dengan Pilihan Serang atau Abaikan) -->
     <div class="battle-overlay" id="battle-screen">
         <div class="battle-box">
             <h2 id="battle-monster-name" style="color: #e53e3e; margin: 0 0 10px 0;">Monster</h2>
             <p id="soal-text" style="font-size: 18px; background: #1a202c; padding: 15px; border-radius: 8px; font-weight: bold; text-align: left; border-left: 5px solid #e53e3e;"></p>
             <input type="number" id="jawaban-input" placeholder="Masukkan jawaban angka..." step="any"><br>
-            <button onclick="serangMonster()">SERANG MONSTER</button>
+            
+            <!-- Tombol Berdampingan -->
+            <div style="display: flex; gap: 10px; width: 87%; margin: 0 auto;">
+                <button onclick="serangMonster()" style="flex: 1; padding: 12px 5px;">⚔️ SERANG</button>
+                <button onclick="abaikanMonster()" style="flex: 1; background: #4a5568; padding: 12px 5px;">🏃 ABAIKAN</button>
+            </div>
         </div>
     </div>
 
@@ -172,7 +238,7 @@
                 });
         }
 
-        // --- 5. AMBIL DATA DARI CLOUD (PERBAIKAN TYPO S) ---
+        // --- 5. AMBIL DATA DARI CLOUD (BERANTAI: 5-10 METER DARI MONSTER SEBELUMNYA) ---
         async function muatSoalCloud() {
             try {
                 let res = await fetch(API_URL);
@@ -188,17 +254,19 @@
                     let finalLat, finalLon;
 
                     if (i === 0) {
+                        // MONSTER PERTAMA: Dikunci tepat di tempat siswa berdiri saat ini (0 Meter)
                         finalLat = centerLat;
                         finalLon = centerLon;
                     } else {
-                        const konversiLat = 111000;
-                        const konversiLon = 109800; // Pastikan ini tanpa huruf s tambahan
+                        // KOREKSI PRESISI DERAJAT REGIONAL MATARAM:
+                        const konversiLat = 111000; // 1 derajat lat ~ 111.000 meter
+                        const konversiLon = 109800; // 1 derajat lon ~ 109.800 meter
                         
                         let sudut = Math.random() * 2 * Math.PI;
-                        let jarakMeter = 5 + Math.random() * 5; 
+                        let jarakMeter = 5 + Math.random() * 5; // Jarak ketat 5 - 10 meter
 
                         let deltaLat = (jarakMeter * Math.sin(sudut)) / konversiLat;
-                        let deltaLon = (jarakMeter * Math.cos(sudut)) / konversiLon; // DIBERSIHKAN DISINI
+                        let deltaLon = (jarakMeter * Math.cos(sudut)) / konversiLon;
 
                         finalLat = refLat + deltaLat;
                         finalLon = refLon + deltaLon;
@@ -213,6 +281,7 @@
                         kalah: false
                     });
 
+                    // Geser titik acuan untuk monster berikutnya (sistem berantai)
                     refLat = finalLat;
                     refLon = finalLon;
                 }
@@ -259,13 +328,60 @@
 
             let jarakTerkecil = Infinity;
             let targetMonster = null;
+            
+            // Bersihkan tampilan titik sonar sebelumnya
+            const sonarContainer = document.getElementById("sonar-monsters-container");
+            sonarContainer.innerHTML = "";
+
+            const RADAR_MAX_JARAK = 30; // Batas radius jangkauan radar (30 meter)
+            const RADAR_RADIUS_PX = 80;  // Setengah ukuran lebar .sonar-screen (160px / 2)
 
             daftarMonster.forEach(m => {
                 if (!m.kalah) {
                     let d = hitungJarak(userLat, userLon, m.lat, m.lon);
+                    
+                    // A. Update data monster terdekat
                     if (d < jarakTerkecil) {
                         jarakTerkecil = d;
                         targetMonster = m;
+                    }
+
+                    // B. HITUNG POSISI TITIK (BLIP) PADA RADAR SONAR
+                    if (d <= RADAR_MAX_JARAK) {
+                        // Hitung perbedaan koordinat sudut (Bearing)
+                        let dLat = m.lat - userLat;
+                        let dLon = m.lon - userLon;
+
+                        // Konversi perbedaan koordinat geografis menjadi meter lokal
+                        const konversiLat = 111000;
+                        const konversiLon = 109800;
+                        let yMeter = dLat * konversiLat;
+                        let xMeter = dLon * konversiLon;
+
+                        // Hitung jarak murni dari center
+                        let totalDist = Math.sqrt(xMeter * xMeter + yMeter * yMeter);
+
+                        if (totalDist > 0) {
+                            // Hitung rasio jarak ke layar sonar
+                            let ratio = totalDist / RADAR_MAX_JARAK;
+                            let distPx = ratio * RADAR_RADIUS_PX;
+
+                            // Hitung sudut di radar
+                            let angle = Math.atan2(yMeter, xMeter);
+
+                            // Cari koordinat X & Y relatif terhadap titik tengah radar (80, 80)
+                            let xPx = RADAR_RADIUS_PX + distPx * Math.cos(angle);
+                            let yPx = RADAR_RADIUS_PX - distPx * Math.sin(angle);
+
+                            // Buat elemen titik (blip) baru di dalam sonar
+                            let blip = document.createElement("div");
+                            blip.className = "sonar-blip";
+                            blip.style.left = `${xPx}px`;
+                            blip.style.top = `${yPx}px`;
+                            
+                            blip.title = `${m.nama} (${d.toFixed(1)}m)`;
+                            sonarContainer.appendChild(blip);
+                        }
                     }
                 }
             });
@@ -279,10 +395,8 @@
                 if (jarakTerkecil <= 6) {
                     document.getElementById("monster-ar").innerText = monsterTerdekat.emoji;
                     document.getElementById("monster-ar").style.display = "block";
-                    document.getElementById("radar-area").style.borderColor = "#e53e3e"; // Radar merah (Bahaya/Dekat)
                 } else {
                     document.getElementById("monster-ar").style.display = "none";
-                    document.getElementById("radar-area").style.borderColor = "#4299e1"; // Radar biru (Normal/Mencari)
                 }
             } else {
                 document.getElementById("jarak-text").innerText = "Area Aman!";
@@ -291,12 +405,18 @@
             }
         }
 
-        // --- 7. MEKANISME BATTLE & UPDATE LEADERBOARD ---
+        // --- 7. MEKANISME BATTLE, ABAIKAN & UPDATE LEADERBOARD ---
         function picuPertarungan() {
             document.getElementById("battle-monster-name").innerText = monsterTerdekat.nama;
             document.getElementById("soal-text").innerText = monsterTerdekat.soal;
             document.getElementById("jawaban-input").value = "";
             document.getElementById("battle-screen").style.display = "flex";
+        }
+
+        function abaikanMonster() {
+            // Tutup layar pertarungan tanpa mengubah status kalah monster
+            document.getElementById("battle-screen").style.display = "none";
+            alert("Kamu memilih untuk mengabaikan monster ini. Tetap waspada di sekitar area!");
         }
 
         async function serangMonster() {
