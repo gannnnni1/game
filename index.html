@@ -163,7 +163,7 @@
                 });
         }
 
-       // --- 5. AMBIL DATA DARI CLOUD (BERANTAI: 5-10 METER DARI MONSTER SEBELUMNYA) ---
+      // --- 5. AMBIL DATA DARI CLOUD (PERBAIKAN PRESISI: BERANTAI 5-10 METER) ---
         async function muatSoalCloud() {
             try {
                 document.getElementById("jarak-text").innerText = "Menghubungkan Cloud...";
@@ -176,30 +176,39 @@
                 let refLat = centerLat;
                 let refLon = centerLon;
 
-                for (let id in databaseMonster) {
+                // Mengubah objek database menjadi array agar urutan indeksnya pasti
+                let keys = Object.keys(databaseMonster);
+
+                for (let i = 0; i < keys.length; i++) {
+                    let id = keys[i];
                     let finalLat, finalLon;
 
-                    if (id === "monster1") {
-                        // Monster pertama tetap persis di titik awal agar langsung ketemu
-                        finalLat = refLat;
-                        finalLon = refLon;
+                    if (i === 0) {
+                        // MONSTER PERTAMA: Dikunci mutlak di titik awal (0 meter dari posisi awal)
+                        finalLat = centerLat;
+                        finalLon = centerLon;
                     } else {
-                        // Mengonversi meter ke derajat koordinat bumi (pendekatan matematis)
-                        // 1 meter lat ~ 0.000009 derajat, 1 meter lon ~ 0.000009 derajat
-                        const satuMeter = 0.000009; 
+                        // KOREKSI PRESISI METER KE DERAJAT:
+                        // Berdasarkan posisi bumi, 1 derajat Lat = ~111.000 meter.
+                        // Di koordinat Mataram (sekitar -8.5 derajat), 1 derajat Lon = ~109.800 meter.
+                        const konversiLat = 111000;
+                        const konversiLon = 109800;
                         
-                        // Tentukan sudut acak (0 hingga 2*PI radian) untuk arah penyebaran
+                        // Tentukan arah sudut acak (0 sampai 360 derajat dalam radian)
                         let sudut = Math.random() * 2 * Math.PI;
                         
-                        // Tentukan jarak acak antara 5 sampai 10 meter
+                        // Tentukan jarak acak yang ketat antara 5 sampai 10 meter
                         let jarakMeter = 5 + Math.random() * 5; 
 
-                        // Hitung koordinat baru berdasarkan posisi monster sebelumnya
-                        finalLat = refLat + (jarakMeter * satuMeter * Math.sin(sudut));
-                        finalLon = refLon + (jarakMeter * satuMeter * Math.cos(sudut));
+                        // Hitung pergeseran koordinat mikro yang akurat dalam meter
+                        let deltaLat = (jarakMeter * Math.sin(sudut)) / konversiLat;
+                        let deltaLon = (jarakMeter * Math.cos(sudut)) / konversiLon;
+
+                        finalLat = refLat + deltaLat;
+                        finalLon = refLon + deltaLon;
                     }
                     
-                    // Simpan data monster saat ini
+                    // Masukkan ke dalam daftar game
                     daftarMonster.push({
                         id: id, 
                         lat: finalLat, 
@@ -211,10 +220,11 @@
                         kalah: false
                     });
 
-                    // Geser acuan koordinat ke posisi monster yang baru saja dibuat
+                    // Pindahkan titik acuan ke posisi monster ini untuk monster berikutnya
                     refLat = finalLat;
                     refLon = finalLon;
                 }
+                
                 document.getElementById("jarak-text").innerText = "Mencari Sinyal...";
             } catch (err) {
                 console.error("Gagal sinkronisasi:", err);
