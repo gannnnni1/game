@@ -3,54 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Math Monster Hunter: Play Mode</title>
+    <title>Math Monster Hunter: Active AR Mode</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0; padding: 0;
-            background-color: #1a202c; color: white;
+            background-color: black; color: white;
             text-align: center; overflow: hidden;
         }
-        .container {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; z-index: 5;
-            box-sizing: border-box; padding: 15px;
-            pointer-events: none; /* Supaya klik bisa tembus ke monster di latar belakang */
-        }
-        h1, .stats-box, .radar-box, .battle-box {
-            pointer-events: auto; /* Mengaktifkan kembali klik pada elemen UI */
-        }
-        h1 { color: #ed8936; font-size: 22px; margin: 5px 0; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-        .stats-box {
-            display: flex; justify-content: space-around;
-            background: rgba(45, 55, 72, 0.9);
-            padding: 10px; border-radius: 8px; font-weight: bold;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        .radar-box {
-            flex: 1; display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            margin: 20px 0; background: rgba(0, 0, 0, 0.5);
-            border-radius: 12px; border: 2px solid #4a5568;
-            transition: opacity 0.5s ease;
-        }
-        /* Video Kamera Utama (Background AR) */
+        /* Video Kamera Utama - SELALU AKTIF SEBAGAI BACKGROUND */
         #webcam {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: 1; display: none;
+            object-fit: cover; z-index: 1;
         }
-        /* Monster Mengambang di Kamera */
+        /* Lapisan UI di atas Kamera */
+        .ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: space-between;
+            z-index: 5; box-sizing: border-box; padding: 15px;
+            pointer-events: none; /* Klik tembus ke monster */
+        }
+        .ui-element { pointer-events: auto; } /* Aktifkan klik untuk tombol/UI */
+
+        h1 { color: #ed8936; font-size: 20px; margin: 5px 0; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        
+        .stats-box {
+            display: flex; justify-content: space-around;
+            background: rgba(26, 32, 44, 0.8);
+            padding: 8px; border-radius: 8px; font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 1px solid #4a5568;
+        }
+
+        /* RADAR TRANSPARAN DI ATAS KAMERA */
+        .radar-box {
+            background: rgba(26, 32, 44, 0.85);
+            padding: 15px; border-radius: 12px; 
+            border: 2px solid #4299e1; margin-bottom: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            backdrop-filter: blur(3px);
+        }
+        
+        .radar-ping {
+            font-size: 35px; display: inline-block;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Monster Mengambang Nyata di Tengah Kamera */
         #monster-ar {
             display: none; position: fixed; top: 45%; left: 50%;
-            transform: translate(-50%, -50%); font-size: 90px;
+            transform: translate(-50%, -50%); font-size: 100px;
             z-index: 2; cursor: pointer;
-            text-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            animation: float 1.2s ease-in-out infinite alternate;
+            filter: drop-shadow(0px 10px 10px rgba(0,0,0,0.7));
+            animation: float 1s ease-in-out infinite alternate;
         }
         @keyframes float {
             from { transform: translate(-50%, -50%) translateY(0px); }
-            to { transform: translate(-50%, -50%) translateY(-25px); }
+            to { transform: translate(-50%, -50%) translateY(-20px); }
         }
+
         /* Pop-up Mode Pertarungan Soal */
         .battle-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -67,42 +82,43 @@
         button {
             background: #e53e3e; color: white; border: none; padding: 12px;
             font-size: 16px; font-weight: bold; border-radius: 6px; width: 87%; cursor: pointer;
-            text-transform: uppercase; letter-spacing: 1px;
+            text-transform: uppercase;
         }
-        button:hover { background: #c53030; }
     </style>
 </head>
 <body>
 
-    <!-- Video Feed Kamera Belakang HP -->
+    <!-- Kamera Belakang HP (Selalu Menyala Sejak Awal) -->
     <video id="webcam" autoplay playsinline></video>
 
-    <!-- Monster Emoji yang Akan Muncul Saat Dekat -->
+    <!-- Monster Emoji yang Akan Muncul di Layar Kamera -->
     <div id="monster-ar" onclick="picuPertarungan()">👾</div>
 
-    <!-- Kontainer User Interface (UI) -->
-    <div class="container">
-        <h1>👾 Math GPS Hunter</h1>
-        <div class="stats-box">
-            <div>Poin: <span id="poin-val" style="color: #48bb78;">0</span></div>
-            <div>Database Cloud: <span id="db-status" style="color: #f6e05e;">Memuat...</span></div>
+    <!-- Lapisan Interface (UI) -->
+    <div class="ui-layer">
+        <!-- Bagian Atas: Skor & Koneksi -->
+        <div class="ui-element">
+            <h1>👾 Math AR Hunter</h1>
+            <div class="stats-box">
+                <div>Poin: <span id="poin-val" style="color: #48bb78;">0</span></div>
+                <div>GPS: <span id="gps-status" style="color: #cbd5e0;">Mencari...</span></div>
+            </div>
         </div>
 
-        <div class="radar-box" id="radar-area">
-            <div id="radar-icon" style="font-size: 50px; margin-bottom: 10px; animation: pulse 1.5s infinite;">📡</div>
-            <h3 style="margin: 5px 0;">Pencari Sinyal Monster</h3>
-            <p id="jarak-text" style="font-size: 24px; font-weight: bold; color: #ed8936;">Menginisialisasi GPS...</p>
-            <p id="petunjuk-text" style="font-size: 14px; color: #cbd5e0; padding: 0 15px; text-align: center;">
-                Berjalanlah mengitari area sekolah. Dekati titik gelombang hingga kamera berburu aktif secara otomatis!
-            </p>
+        <!-- Bagian Bawah: Radar Pelacak Transparan -->
+        <div class="ui-element radar-box" id="radar-area">
+            <div class="radar-ping">📡</div>
+            <div style="font-weight: bold; color: #4299e1; margin-top: 5px;">RADAR DETEKSI MONSTER</div>
+            <p id="jarak-text" style="font-size: 26px; font-weight: bold; color: #ed8936; margin: 5px 0;">Menghubungkan...</p>
+            <p id="petunjuk-text" style="font-size: 12px; color: #a0aec0; margin: 0;">Ikuti indikator jarak radar di atas untuk menemukan posisi monster.</p>
         </div>
     </div>
 
-    <!-- Layar Pop-up Lembar Soal Matematika -->
+    <!-- Pop-up Soal Matematika -->
     <div class="battle-overlay" id="battle-screen">
         <div class="battle-box">
             <h2 id="battle-monster-name" style="color: #e53e3e; margin: 0 0 10px 0;">Monster</h2>
-            <p id="soal-text" style="font-size: 18px; background: #1a202c; padding: 15px; border-radius: 8px; font-weight: bold; border-left: 5px solid #e53e3e; text-align: left;"></p>
+            <p id="soal-text" style="font-size: 18px; background: #1a202c; padding: 15px; border-radius: 8px; font-weight: bold; text-align: left;"></p>
             <input type="number" id="jawaban-input" placeholder="Masukkan jawaban angka..." step="any"><br>
             <button onclick="serangMonster()">SERANG MONSTER</button>
         </div>
@@ -113,35 +129,55 @@
         const centerLat = -8.564336; 
         const centerLon = 116.1194559; 
 
-        // --- 2. URL GOOGLE APPS SCRIPT (DATABASE CLOUD) ---
-        // PENTING: Ganti teks di bawah ini dengan URL Web App Apps Script milikmu!
-        const API_URL = "URL_APPLIKASI_WEB_KAMU"; 
+        // --- 2. URL GOOGLE APPS SCRIPT ---
+    const API_URL = "https://script.google.com/macros/s/AKfycbxQ3AU1pxi0Vt9jB2LvwqOAdknUxLN02S8FWWTERXk0gpflOO5m5PhEEWOckS9sBEUR/exec"; 
 
-        // --- 3. STATE & VARIABEL GLOBAL GAME ---
+        // --- 3. VARIABEL GLOBAL GAME ---
         let daftarMonster = [];
         let totalPoin = 0;
         let monsterTerdekat = null;
         let videoStream = null;
-        let gpsWatcher = null;
 
-        // --- 4. AMBIL DATA DARI GOOGLE SHEETS & SEBAR SECARA ACAK ---
-        async function inisialisasiMonsterDariCloud() {
+        // --- 4. START UP GAME: AKTIFKAN KAMERA LANGSUNG ---
+        async function startUpGame() {
+            // A. Nyalakan kamera belakang langsung saat web dibuka
+            nyalakanKameraAwal();
+            
+            // B. Unduh data soal dari Google Sheets
+            await muatSoalCloud();
+            
+            // C. Jalankan pemantauan GPS
+            mulaiTrackingGPS();
+        }
+
+        function nyalakanKameraAwal() {
+            const video = document.getElementById("webcam");
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+                .then(stream => { 
+                    videoStream = stream; 
+                    video.srcObject = stream; 
+                })
+                .catch(err => {
+                    console.error("Gagal membuka kamera: ", err);
+                    alert("Aplikasi memerlukan izin kamera belakang untuk mensimulasikan AR!");
+                });
+        }
+
+        // --- 5. AMBIL DATA DARI CLOUD ---
+        async function muatSoalCloud() {
             try {
+                document.getElementById("jarak-text").innerText = "Menghubungkan Cloud...";
                 let res = await fetch(API_URL);
                 let databaseMonster = await res.json();
                 
                 daftarMonster = [];
-                
-                // Iterasi setiap monster dari Google Sheets dan beri koordinat acak
                 for (let id in databaseMonster) {
-                    // Radius acak sekitar 10-40 meter dari titik pusat percobaan
+                    // Sebar acak dalam radius 10-40 meter di sekitar koordinat percobaan
                     let acakLat = centerLat + (Math.random() - 0.5) * 0.0006;
                     let acakLon = centerLon + (Math.random() - 0.5) * 0.0006;
                     
                     daftarMonster.push({
-                        id: id,
-                        lat: acakLat,
-                        lon: acakLon,
+                        id: id, lat: acakLat, lon: acakLon,
                         nama: databaseMonster[id].nama,
                         emoji: databaseMonster[id].emoji || "👾",
                         soal: databaseMonster[id].soal,
@@ -149,42 +185,37 @@
                         kalah: false
                     });
                 }
-                
-                document.getElementById("db-status").innerText = "Terhubung";
-                document.getElementById("db-status").style.color = "#48bb78";
-                
-                // Setelah data siap, jalankan pelacakan GPS siswa
-                mulaiTrackingGPS();
-                
+                document.getElementById("jarak-text").innerText = "Mencari Sinyal...";
             } catch (err) {
-                console.error("Gagal sinkronisasi ke cloud:", err);
-                document.getElementById("db-status").innerText = "Gagal Load";
-                document.getElementById("db-status").style.color = "#e53e3e";
-                document.getElementById("jarak-text").innerText = "Koneksi Error!";
+                console.error("Gagal sinkronisasi:", err);
+                document.getElementById("jarak-text").innerText = "Koneksi Bermasalah";
             }
         }
 
-        // --- 5. RUNTIME TRACKING GPS SISWA ---
+        // --- 6. RUNTIME RADAR DETEKSI (GPS) ---
         function mulaiTrackingGPS() {
             if (navigator.geolocation) {
-                gpsWatcher = navigator.geolocation.watchPosition(prosesLokasiPemain, errorGPS, { 
+                navigator.geolocation.watchPosition(prosesLokasiPemain, errorGPS, { 
                     enableHighAccuracy: true,
                     maximumAge: 0,
                     timeout: 7000 
                 });
             } else {
-                alert("Browser atau HP tidak mendukung fitur lokasi GPS.");
+                alert("GPS tidak didukung pada perangkat ini.");
             }
         }
 
         function prosesLokasiPemain(position) {
             const userLat = position.coords.latitude;
             const userLon = position.coords.longitude;
+            
+            document.getElementById("gps-status").innerText = "Aktif";
+            document.getElementById("gps-status").style.color = "#48bb78";
 
             let jarakTerkecil = Infinity;
             let targetMonster = null;
 
-            // Cari monster aktif yang posisinya paling dekat dengan siswa
+            // Scan monster terdekat yang belum kalah
             daftarMonster.forEach(m => {
                 if (!m.kalah) {
                     let d = hitungJarak(userLat, userLon, m.lat, m.lon);
@@ -198,53 +229,27 @@
             monsterTerdekat = targetMonster;
 
             if (monsterTerdekat) {
-                document.getElementById("jarak-text").innerText = `${jarakTerkecil.toFixed(1)} meter`;
+                // Perbarui teks radar penunjuk jarak
+                document.getElementById("jarak-text").innerText = `${jarakTerkecil.toFixed(1)} Meter`;
                 
-                // JIKA DEKAT MONSTER (Radius kurang dari atau sama dengan 6 meter) -> MODUL AR AKTIF
+                // JIKA RADIUS DEKAT (<= 6 meter) -> POP UP MONSTER DI TENGAH KAMERA
                 if (jarakTerkecil <= 6) {
-                    document.getElementById("radar-area").style.opacity = "0.15"; 
                     document.getElementById("monster-ar").innerText = monsterTerdekat.emoji;
                     document.getElementById("monster-ar").style.display = "block";
-                    nyalakanKamera();
+                    document.getElementById("radar-area").style.borderColor = "#e53e3e"; // Radar berubah merah tanda bahaya
                 } else {
-                    // JIKA MENJAUH -> KEMBALI KE TAMPILAN RADAR UTAMA
-                    matikanKamera();
-                    document.getElementById("radar-area").style.opacity = "1";
+                    // JIKA MENJAUH -> SEMBUNYIKAN MONSTER
                     document.getElementById("monster-ar").style.display = "none";
+                    document.getElementById("radar-area").style.borderColor = "#4299e1"; // Radar biru normal
                 }
             } else {
-                document.getElementById("jarak-text").innerText = "Semua Monster Kalah!";
-                document.getElementById("petunjuk-text").innerText = "Kerja bagus! Seluruh area sekolah telah aman dari monster matematika.";
-                matikanKamera();
+                document.getElementById("jarak-text").innerText = "Area Aman!";
+                document.getElementById("petunjuk-text").innerText = "Semua monster matematika di koordinat ini telah dikalahkan.";
+                document.getElementById("monster-ar").style.display = "none";
             }
         }
 
-        // --- 6. KONTROL AKSES WEB CAM HP ---
-        function nyalakanKamera() {
-            const video = document.getElementById("webcam");
-            if (video.style.display !== "block") {
-                video.style.display = "block";
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-                    .then(stream => { 
-                        videoStream = stream; 
-                        video.srcObject = stream; 
-                    })
-                    .catch(err => {
-                        console.error("Akses kamera ditolak/gagal: ", err);
-                    });
-            }
-        }
-
-        function matikanKamera() {
-            const video = document.getElementById("webcam");
-            video.style.display = "none";
-            if (videoStream) {
-                videoStream.getTracks().forEach(track => track.stop());
-                videoStream = null;
-            }
-        }
-
-        // --- 7. MEKANISME BATTLE & VALIDASI KUIS ---
+        // --- 7. MEKANISME BATTLE ---
         function picuPertarungan() {
             document.getElementById("battle-monster-name").innerText = monsterTerdekat.nama;
             document.getElementById("soal-text").innerText = monsterTerdekat.soal;
@@ -254,55 +259,36 @@
 
         function serangMonster() {
             const jawabanUser = parseFloat(document.getElementById("jawaban-input").value);
-            
-            if (isNaN(jawabanUser)) {
-                alert("Masukkan jawaban berupa angka valid!");
-                return;
-            }
+            if (isNaN(jawabanUser)) return alert("Masukkan jawaban angka!");
 
-            // Validasi toleransi koma/desimal tipis
             if (Math.abs(jawabanUser - monsterTerdekat.jawab) < 0.01) {
-                alert(`💥 SERANGAN BERHASIL!\n${monsterTerdekat.nama} telah ditaklukkan. Kamu memperoleh +100 Poin!`);
-                
+                alert(`💥 DAR! Serangan telak! ${monsterTerdekat.nama} hancur. +100 Poin!`);
                 monsterTerdekat.kalah = true;
                 totalPoin += 100;
-                
-                // Update skor di layar UI
                 document.getElementById("poin-val").innerText = totalPoin;
-                
-                // Tutup interface bertarung dan bersihkan kamera
                 document.getElementById("battle-screen").style.display = "none";
                 document.getElementById("monster-ar").style.display = "none";
-                matikanKamera();
             } else {
-                alert("🛡️ Seranganmu meleset! Jawabanmu salah atau kurang tepat. Hitung kembali!");
+                alert("🛡️ Meleset! Jawabanmu salah, monster menyerang balik! Hitung ulang.");
             }
         }
 
-        // --- 8. UTILITY UTAMA: FORMULA HAVERSINE (MENGHITUNG JARAK) ---
+        // Formula Haversine (Meter)
         function hitungJarak(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // Radius bumi dalam satuan meter
-            const phi1 = lat1 * Math.PI/180; 
-            const phi2 = lat2 * Math.PI/180;
-            const dPhi = (lat2-lat1) * Math.PI/180; 
-            const dLon = (lon2-lon1) * Math.PI/180;
-            
-            const a = Math.sin(dPhi/2) * Math.sin(dPhi/2) +
-                      Math.cos(phi1) * Math.cos(phi2) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            
-            return R * c; // Hasil akhir dalam meter
+            const R = 6371e3;
+            const phi1 = lat1 * Math.PI/180; const phi2 = lat2 * Math.PI/180;
+            const dPhi = (lat2-lat1) * Math.PI/180; const dLon = (lon2-lon1) * Math.PI/180;
+            const a = Math.sin(dPhi/2) * Math.sin(dPhi/2) + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
         }
 
         function errorGPS(err) { 
-            console.warn(`GPS Error (${err.code}): ${err.message}`);
-            document.getElementById("jarak-text").innerText = "GPS Bermasalah";
-            document.getElementById("petunjuk-text").innerText = "Pastikan izin lokasi browser HP aktif dan GPS disetel ke Akurasi Tinggi.";
+            document.getElementById("gps-status").innerText = "Error/Mati";
+            document.getElementById("gps-status").style.color = "#e53e3e";
         }
 
-        // Menjalankan inisialisasi download data otomatis saat halaman selesai dimuat
-        window.onload = inisialisasiMonsterDariCloud;
+        // Booting game otomatis
+        window.onload = startUpGame;
     </script>
 </body>
 </html>
