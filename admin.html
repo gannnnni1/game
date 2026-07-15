@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Admin Guru - Math Monster</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #1a202c; color: white; padding: 20px; text-align: center; }
+        .container { max-width: 600px; margin: 0 auto; background: #2d3748; padding: 20px; border-radius: 12px; }
+        input, text-area, select { width: 90%; padding: 10px; margin: 8px 0; background: #1a202c; color: white; border: 1px solid #4a5568; border-radius: 6px; }
+        button { background: #3182ce; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; margin: 5px; }
+        button.del { background: #e53e3e; }
+        table { width: 100%; margin-top: 20px; border-collapse: collapse; font-size: 14px; }
+        th, td { border: 1px solid #4a5568; padding: 10px; text-align: left; }
+        th { background: #1a202c; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🛠️ Kelola Soal &amp; Monster</h2>
+    
+    <div style="text-align: left; padding: 10px;">
+        <label>ID Monster (ex: monster1):</label><br>
+        <input type="text" id="m-id" placeholder="monster1"><br>
+        <label>Nama Monster:</label><br>
+        <input type="text" id="m-nama" placeholder="Slime Aljabar"><br>
+        <label>Emoji Monster:</label><br>
+        <input type="text" id="m-emoji" placeholder="💧"><br>
+        <label>Soal Matematika:</label><br>
+        <input type="text" id="m-soal" placeholder="2x + 5 = 11, x = ?"><br>
+        <label>Kunci Jawaban (Angka):</label><br>
+        <input type="number" id="m-jawab" placeholder="3"><br><br>
+        <button onclick="simpanMonster()">Simpan / Update Monster</button>
+        <button onclick="kosongkanForm()" style="background:#4a5568;">Reset Form</button>
+    </div>
+
+    <h3>Daftar Monster Aktif</h3>
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Monster</th><th>Soal</th><th>Aksi</th></tr>
+        </thead>
+        <tbody id="tabel-monster">
+            <tr><td colspan="4">Memuat data dari Google Sheets...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // GANTI DENGAN URL WEB APP GOOGLE APPS SCRIPT-MU
+    const API_URL = "https://script.google.com/macros/s/AKfycbxQ3AU1pxi0Vt9jB2LvwqOAdknUxLN02S8FWWTERXk0gpflOO5m5PhEEWOckS9sBEUR/exec"; 
+
+    async function muatMonster() {
+        try {
+            let res = await fetch(API_URL);
+            let data = await res.json();
+            let html = "";
+            for (let id in data) {
+                html += `<tr>
+                    <td>${id}</td>
+                    <td>${data[id].emoji} ${data[id].nama}</td>
+                    <td>${data[id].soal} (Jawab: ${data[id].jawab})</td>
+                    <td>
+                        <button onclick="editForm('${id}', '${data[id].nama}', '${data[id].emoji}', '${data[id].soal}', ${data[id].jawab})">Edit</button>
+                        <button class="del" onclick="hapusMonster('${id}')">Hapus</button>
+                    </td>
+                </tr>`;
+            }
+            document.getElementById("tabel-monster").innerHTML = html || "<tr><td colspan='4'>Belum ada monster.</td></tr>";
+        } catch (e) {
+            document.getElementById("tabel-monster").innerHTML = "<tr><td colspan='4'>Gagal memuat data.</td></tr>";
+        }
+    }
+
+    async function simpanMonster() {
+        let payload = {
+            action: "save",
+            id: document.getElementById("m-id").value,
+            nama: document.getElementById("m-nama").value,
+            emoji: document.getElementById("m-emoji").value,
+            soal: document.getElementById("m-soal").value,
+            jawab: parseFloat(document.getElementById("m-jawab").value)
+        };
+        if(!payload.id || !payload.nama || !payload.soal || isNaN(payload.jawab)) return alert("Mohon lengkapi semua data!");
+
+        await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+        alert("Monster Berhasil Disimpan!");
+        kosongkanForm();
+        muatMonster();
+    }
+
+    async function hapusMonster(id) {
+        if(confirm(`Hapus ${id}?`)) {
+            await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "delete", id: id }) });
+            muatMonster();
+        }
+    }
+
+    function editForm(id, nama, emoji, soal, jawab) {
+        document.getElementById("m-id").value = id;
+        document.getElementById("m-nama").value = nama;
+        document.getElementById("m-emoji").value = emoji;
+        document.getElementById("m-soal").value = soal;
+        document.getElementById("m-jawab").value = jawab;
+    }
+
+    function kosongkanForm() {
+        document.getElementById("m-id").value = "";
+        document.getElementById("m-nama").value = "";
+        document.getElementById("m-emoji").value = "";
+        document.getElementById("m-soal").value = "";
+        document.getElementById("m-jawab").value = "";
+    }
+
+    window.onload = muatMonster;
+</script>
+</body>
+</html>
