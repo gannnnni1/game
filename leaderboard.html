@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Leaderboard - Nilai Siswa</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #1a202c; color: white; padding: 20px; text-align: center; }
+        .box { max-width: 500px; margin: 0 auto; background: #2d3748; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        table { width: 100%; border-collapse: collapse; margin-top: 25px; }
+        th, td { padding: 12px; border-bottom: 1px solid #4a5568; text-align: left; }
+        th { background: #1a202c; color: #4299e1; }
+        tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        .btn-refresh { background: #3182ce; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>🏆 Papan Skor Live Siswa</h2>
+        <p>Real-time monitoring hasil pengerjaan Math AR Hunter</p>
+        <button class="btn-refresh" onclick="muatSkor()">🔄 Segarkan Data</button>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 15%">Pos</th>
+                    <th style="width: 60%">Nama Siswa</th>
+                    <th style="width: 25%">Total Poin</th>
+                </tr>
+            </thead>
+            <tbody id="tabel-skor">
+                <tr><td colspan="3">Memuat skor dari cloud...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+       const API_URL = "https://script.google.com/macros/s/AKfycbzazAJICkhpWzAUwZrlF3-l6bCXAxcS5OSvoZF0RxBK5lv3E7vzc-W-z-fooUk7Eh8g/exec"; 
+
+        async function muatSkor() {
+            try {
+                let res = await fetch(`${API_URL}?type=leaderboard`);
+                let data = await res.json();
+                let html = "";
+                data.forEach((siswa, index) => {
+                    let medali = index === 0 ? "🥇 " : index === 1 ? "🥈 " : index === 2 ? "🥉 " : "";
+                    html += `<tr>
+                        <td><strong>#${index + 1}</strong></td>
+                        <td>${medali}${siswa.nama}</td>
+                        <td style="color: #48bb78; font-weight: bold;">${siswa.poin} Poin</td>
+                    </tr>`;
+                });
+                document.getElementById("tabel-skor").innerHTML = html || "<tr><td colspan='3'>Belum ada siswa yang bermain.</td></tr>";
+            } catch (e) {
+                document.getElementById("tabel-skor").innerHTML = "<tr><td colspan='3'>Gagal memuat data skor.</td></tr>";
+            }
+        }
+        window.onload = muatSkor;
+    </script>
+</body>
+</html>
