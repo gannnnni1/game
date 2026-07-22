@@ -31,7 +31,7 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 1px solid #4a5568;
         }
 
-        /* RADAR SONAR */
+        /* RADAR SONAR DENGAN MATA ANGIN */
         .sonar-container {
             background: rgba(10, 25, 20, 0.9);
             padding: 12px; border-radius: 16px; 
@@ -46,6 +46,22 @@
             background: radial-gradient(circle, rgba(0,255,102,0.15) 0%, rgba(0,0,0,0.8) 80%);
             overflow: hidden; margin: 8px 0;
         }
+
+        /* LAYER MATA ANGIN YANG BERPUTAR DENGAN KOMPAS */
+        .compass-ring {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border-radius: 50%; pointer-events: none; z-index: 2;
+            transition: transform 0.1s linear;
+        }
+
+        .compass-cardinal {
+            position: absolute; font-weight: 900; font-size: 13px;
+            text-shadow: 0 0 4px rgba(0,0,0,0.9); transform: translate(-50%, -50%);
+        }
+        .cardinal-n { top: 10px; left: 50%; color: #00ff66; font-size: 15px; } /* Utara - Hijau */
+        .cardinal-e { top: 50%; left: 150px; color: #38bdf8; } /* Timur */
+        .cardinal-s { top: 150px; left: 50%; color: #f43f5e; } /* Selatan */
+        .cardinal-w { top: 50%; left: 10px; color: #fbbf24; } /* Barat */
 
         .sonar-sweep {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -115,7 +131,7 @@
     <video id="webcam" autoplay playsinline></video>
     <img id="monster-ar" onclick="picuPertarungan()" src="" alt="Monster AR">
 
-    <!-- OVERLAY START (Memastikan sensor & kamera diizinkan HP) -->
+    <!-- OVERLAY START -->
     <div class="overlay-screen" id="start-screen">
         <div class="box-card">
             <h2 style="color: #3b82f6; margin-top: 0;">🎮 AR Target Hunter</h2>
@@ -137,9 +153,17 @@
         </div>
 
         <div class="ui-element sonar-container">
-            <div style="font-weight: bold; color: #00ff66; font-size: 13px; letter-spacing: 1px;">📡 AR SCANNER RADAR (MAX 10M)</div>
+            <div style="font-weight: bold; color: #00ff66; font-size: 13px; letter-spacing: 1px;">📡 AR SCANNER RADAR (KOMPAS)</div>
             
             <div class="sonar-screen">
+                <!-- RING MATA ANGIN (N, E, S, W) -->
+                <div class="compass-ring" id="compass-ring">
+                    <span class="compass-cardinal cardinal-n">U</span> <!-- Utara -->
+                    <span class="compass-cardinal cardinal-e">T</span> <!-- Timur -->
+                    <span class="compass-cardinal cardinal-s">S</span> <!-- Selatan -->
+                    <span class="compass-cardinal cardinal-w">B</span> <!-- Barat -->
+                </div>
+
                 <div class="sonar-sweep"></div>
                 <div class="sonar-ring ring-1"></div>
                 <div class="sonar-ring ring-2"></div>
@@ -148,7 +172,7 @@
             </div>
 
             <p id="jarak-text" style="font-size: 18px; font-weight: bold; color: #00ff66; margin: 2px 0;">Menghubungkan Sensor...</p>
-            <p id="petunjuk-text" style="font-size: 11px; color: #a0aec0; margin: 0; text-align: center;">Arahkan HP ke titik merah pada radar lalu berjalanlah mendekat.</p>
+            <p id="petunjuk-text" style="font-size: 11px; color: #a0aec0; margin: 0; text-align: center;">Arahkan HP sesuai mata angin dan berjalanlah mendekat.</p>
         </div>
     </div>
 
@@ -170,12 +194,10 @@
     </div>
 
     <script>
-        // Ganti dengan URL Apps Script kamu jika ada. Jika kosong, game tetap jalan pakai Soal Default!
-         const API_URL = "https://script.google.com/macros/s/AKfycbwv4xFqOaxWwI1YWqXQazS_PsIqbGA0bcmiJTHoChxzO7SuzMBbGPoFABbqwrhSf60CIw/exec"; 
-        const DEFAULT_MONSTER_IMG = "https://cdn-icons-png.flaticon.com/512/2589/2589301.png";
+             const API_URL = "https://script.google.com/macros/s/AKfycbwv4xFqOaxWwI1YWqXQazS_PsIqbGA0bcmiJTHoChxzO7SuzMBbGPoFABbqwrhSf60CIw/exec"; 
+     const DEFAULT_MONSTER_IMG = "https://cdn-icons-png.flaticon.com/512/2589/2589301.png";
         const MAX_MONSTER_DISTANCE = 10.0;
 
-        // BACKUP DATA JIKA API TIDAK TERHUBUNG
         const FALLBACK_DATABASE = {
             "M1": { nama: "Slime Math", soal: "Berapakah hasil dari 12 + 15?", jawab: 27, gambar: DEFAULT_MONSTER_IMG },
             "M2": { nama: "Goblin Angka", soal: "Berapakah 8 x 7?", jawab: 56, gambar: DEFAULT_MONSTER_IMG },
@@ -206,15 +228,11 @@
         }
 
         async function mintaIzinSensorDanKamera() {
-            // 1. Kamera
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
                 document.getElementById("webcam").srcObject = stream;
-            } catch (e) {
-                alert("Kamera tidak dapat diakses!");
-            }
+            } catch (e) { alert("Kamera tidak dapat diakses!"); }
 
-            // 2. Kompas (Izin Khusus iOS/Android)
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try {
                     const response = await DeviceOrientationEvent.requestPermission();
@@ -224,7 +242,6 @@
                 window.addEventListener('deviceorientation', tanganiOrientasi, true);
             }
 
-            // 3. Pedometer (Langkah Kaki)
             if (window.DeviceMotionEvent) {
                 window.addEventListener('devicemotion', function(e) {
                     let acc = e.accelerationIncludingGravity;
@@ -243,6 +260,12 @@
         function tanganiOrientasi(e) {
             if (e.webkitCompassHeading) deviceHeading = e.webkitCompassHeading;
             else if (e.alpha) deviceHeading = 360 - e.alpha;
+
+            // PUTAR MATA ANGIN RADAR SESUAI ARAH HP
+            const compassRing = document.getElementById("compass-ring");
+            if (compassRing) {
+                compassRing.style.transform = `rotate(${-deviceHeading}deg)`;
+            }
         }
 
         async function muatSoalCloud() {
@@ -253,7 +276,6 @@
                     let res = await fetch(API_URL);
                     databaseMonster = await res.json();
                 } catch (err) {
-                    console.log("Menggunakan database lokal (fallback)...");
                     databaseMonster = FALLBACK_DATABASE;
                 }
             } else {
@@ -276,6 +298,7 @@
             spawnNextMonster();
         }
 
+        // MONSTER TERKUNCI MATI (STATIONARY ANCHOR)
         function spawnNextMonster() {
             if (antreanMonster.length === 0) {
                 activeMonster = null;
@@ -293,13 +316,14 @@
                 mY = playerY + 1.5 * Math.cos(headingRad);
                 isFirstSpawn = false;
             } else {
-                // SPAWN BERIKUTNYA: Jarak acak 3 - 6 meter dari pemain
-                let jarakMeter = 3 + Math.random() * 3; 
+                // SPAWN BERIKUTNYA: Posisi acak 3 - 5 meter dari pemain, LALU DIAM TERTANAM DI SANA
+                let jarakMeter = 3 + Math.random() * 2; 
                 let sudut = Math.random() * 2 * Math.PI;
                 mX = playerX + jarakMeter * Math.sin(sudut);
                 mY = playerY + jarakMeter * Math.cos(sudut);
             }
 
+            // Koor posX dan posY ini TIDAK AKAN PERNAH BERUBAH LAGI (Monstermu diam di tempat!)
             activeMonster = { ...nextData, posX: mX, posY: mY };
             document.getElementById("target-count").innerText = `${totalTargetSelesai}/${totalMonsterAwal}`;
         }
@@ -320,26 +344,17 @@
                 return;
             }
 
+            // HITUNG MURNI PERPINDAHAN PEMAIN MENDEKATI MONSTER DIAM
             let dx = activeMonster.posX - playerX;
             let dy = activeMonster.posY - playerY;
             let d = Math.sqrt(dx * dx + dy * dy);
-
-            // LOGIKA PEMBATAS MAX 10 METER
-            if (d > MAX_MONSTER_DISTANCE) {
-                let ratio = MAX_MONSTER_DISTANCE / d;
-                activeMonster.posX = playerX + (dx * ratio);
-                activeMonster.posY = playerY + (dy * ratio);
-                dx = activeMonster.posX - playerX;
-                dy = activeMonster.posY - playerY;
-                d = MAX_MONSTER_DISTANCE;
-            }
 
             document.getElementById("jarak-text").innerText = `${d.toFixed(1)} Meter`;
 
             let monsterBearing = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360;
             const RADAR_MAX_JARAK = 10, RADAR_RADIUS_PX = 80; 
 
-            // RENDER BLIP RED
+            // RENDER TITIK MERAH MONSTER DI RADAR
             if (d <= RADAR_MAX_JARAK) {
                 let ratio = d / RADAR_MAX_JARAK;
                 let distPx = ratio * RADAR_RADIUS_PX;
@@ -357,7 +372,7 @@
             let angleDiff = Math.abs(monsterBearing - deviceHeading);
             if (angleDiff > 180) angleDiff = 360 - angleDiff;
 
-            // DISPLAY MONSTER
+            // DISPLAY MONSTER AR
             if (d <= 2.5 && angleDiff <= 35) {
                 const imgM = document.getElementById("monster-ar");
                 imgM.src = activeMonster.gambar;
