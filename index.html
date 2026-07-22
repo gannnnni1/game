@@ -148,8 +148,8 @@
                 <div id="sonar-monsters-container"></div>
             </div>
 
-            <p id="jarak-text" style="font-size: 18px; font-weight: bold; color: #00ff66; margin: 2px 0;">Menunggu GPS & Kompas...</p>
-            <p id="petunjuk-text" style="font-size: 11px; color: #a0aec0; margin: 0; text-align: center;">Arahkan HP ke titik merah hingga masuk dalam sorotan kerucut cyan!</p>
+            <p id="jarak-text" style="font-size: 18px; font-weight: bold; color: #00ff66; margin: 2px 0;">Mencari Sinyal GPS Akurat...</p>
+            <p id="petunjuk-text" style="font-size: 11px; color: #a0aec0; margin: 0; text-align: center;">Berdirilah di area terbuka agar GPS terkunci presisi.</p>
         </div>
     </div>
 
@@ -173,9 +173,9 @@
     <script>
         let currentLat = null, currentLon = null;
 
-        // MASUKKAN URL APPS SCRIPT BERSIH MILIKMU DI SINI
-     const API_URL = "https://script.google.com/macros/s/AKfycbwv4xFqOaxWwI1YWqXQazS_PsIqbGA0bcmiJTHoChxzO7SuzMBbGPoFABbqwrhSf60CIw/exec"; 
-     const DEFAULT_MONSTER_IMG = "https://cdn-icons-png.flaticon.com/512/2589/2589301.png";
+        // PASTA URL WEB APP GOOGLE APPS SCRIPT KAMU DI SINI
+        const API_URL = "https://script.google.com/macros/s/AKfycbwv4xFqOaxWwI1YWqXQazS_PsIqbGA0bcmiJTHoChxzO7SuzMBbGPoFABbqwrhSf60CIw/exec"; 
+         const DEFAULT_MONSTER_IMG = "https://cdn-icons-png.flaticon.com/512/2589/2589301.png";
 
         let namaSiswa = "";
         let antreanMonster = [], activeMonster = null;
@@ -219,7 +219,6 @@
                 let rawKeys = Object.keys(databaseMonster);
                 if (rawKeys.length === 0) return;
 
-                // Pisahkan Monster #1 (Urutan pertama tetap), sisanya diacak
                 let firstKey = rawKeys[0];
                 let restKeys = rawKeys.slice(1);
 
@@ -231,7 +230,6 @@
                 let finalKeys = [firstKey, ...restKeys];
                 totalMonsterAwal = finalKeys.length;
 
-                // Simpan template data monster tanpa posisi koordinat dulu
                 antreanMonster = finalKeys.map(id => ({
                     id: id,
                     nama: databaseMonster[id].nama,
@@ -241,16 +239,19 @@
                     jawab: databaseMonster[id].jawab
                 }));
 
-                // Munculkan Monster Pertama di tempat
-                spawnNextMonster();
                 isDataLoaded = true;
+                
+                // Baru spawn monster setelah data terunduh DAN koordinat GPS nyata sudah didapat
+                if (currentLat !== null && currentLon !== null && !activeMonster) {
+                    spawnNextMonster();
+                }
             } catch (err) {
                 console.error("Gagal sinkronisasi:", err);
                 document.getElementById("jarak-text").innerText = "Koneksi Bermasalah";
             }
         }
 
-        // SPAWN MONSTER DENGAN LOKASI DINAMIS PAS DIPANGGIL, LALU KUNCI KOORDINATNYA
+        // FUNGSI MENGUNCILKAN MONSTER DENGAN RADIUS SUPER DEKAT (3-6 METER)
         function spawnNextMonster() {
             if (antreanMonster.length === 0) {
                 activeMonster = null;
@@ -258,20 +259,23 @@
                 return;
             }
 
+            // Mencegah spawn jika koordinat GPS belum valid
+            if (currentLat === null || currentLon === null) return;
+
             let nextData = antreanMonster.shift();
             let finalLat, finalLon;
 
             if (isFirstSpawn) {
-                // Monster Pertama TEPAT berada di lokasi siswa saat ini (0 Meter)
+                // Monster #1 TEPAT berada di lokasi siswa berdiri (0 Meter)
                 finalLat = currentLat;
                 finalLon = currentLon;
                 isFirstSpawn = false;
             } else {
-                // Monster berikutnya ditempatkan acak 3-7 meter dari lokasi HP siswa SAAT INI
+                // Monster berikutnya HANYA 3 s.d 6 METER dari siswa SAAT INI
                 const METERS_PER_DEGREE_LAT = 111139;
                 const METERS_PER_DEGREE_LON = 111139 * Math.cos(currentLat * Math.PI / 180);
 
-                let jarakMeter = 3 + Math.random() * 4; // Radius 3 sampai 7 meter
+                let jarakMeter = 3 + Math.random() * 3; // DIKUNCI PASTI 3 SAMPAI 6 METER
                 let sudut = Math.random() * 2 * Math.PI; // Arah acak 360 derajat
 
                 let deltaLat = (jarakMeter * Math.cos(sudut)) / METERS_PER_DEGREE_LAT;
@@ -281,7 +285,7 @@
                 finalLon = currentLon + deltaLon;
             }
 
-            // Kunci koordinat GPS monster aktif ini agar tidak bergerak lagi!
+            // KUNCI TITIK KOORDINAT MONSTER SECARA DI BUMI (STABIL)
             activeMonster = {
                 ...nextData,
                 lat: finalLat,
@@ -293,18 +297,26 @@
 
         function mulaiTrackingGPS() {
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(prosesLokasiPemain, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 7000 });
-            } else { alert("GPS tidak didukung!"); }
+                navigator.geolocation.watchPosition(prosesLokasiPemain, function(err){
+                    document.getElementById("jarak-text").innerText = "Gagal Mengakses GPS";
+                }, { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
+            } else { alert("GPS tidak didukung HP ini!"); }
         }
 
         async function prosesLokasiPemain(position) {
             currentLat = position.coords.latitude;
             currentLon = position.coords.longitude;
 
+            // Jika database belum selesai dimuat, muat dulu
             if (!isDataLoaded) {
                 document.getElementById("jarak-text").innerText = "Mengunduh Soal...";
                 await muatSoalCloud(); 
                 return; 
+            }
+
+            // Jika monster belum dispawn karena menunggu sinyal GPS, spawn sekarang
+            if (!activeMonster && antreanMonster.length > 0) {
+                spawnNextMonster();
             }
 
             const sonarContainer = document.getElementById("sonar-monsters-container");
@@ -317,15 +329,15 @@
                 return;
             }
 
-            const RADAR_MAX_JARAK = 30, RADAR_RADIUS_PX = 80; 
+            const RADAR_MAX_JARAK = 20, RADAR_RADIUS_PX = 80; 
 
-            // Hitung jarak siswa bergerak relatif ke koordinat MONSTER YANG DIAM
-            let d = hitungJarak(currentLat, currentLon, activeMonster.lat, activeMonster.lon);
+            // HITUNG JARAK REALTIME DENGAN FORMULA LOKAL PERSISI HIGH-ACCURACY
+            let d = hitungJarakPresisi(currentLat, currentLon, activeMonster.lat, activeMonster.lon);
             document.getElementById("jarak-text").innerText = `${d.toFixed(1)} Meter`;
 
             let dLat = activeMonster.lat - currentLat;
             let dLon = activeMonster.lon - currentLon;
-            let yMeter = dLat * 111000, xMeter = dLon * 109800;
+            let yMeter = dLat * 111139, xMeter = dLon * (111139 * Math.cos(currentLat * Math.PI / 180));
 
             let monsterBearing = (Math.atan2(xMeter, yMeter) * 180 / Math.PI + 360) % 360;
 
@@ -347,7 +359,7 @@
             let angleDiff = Math.abs(monsterBearing - deviceHeading);
             if (angleDiff > 180) angleDiff = 360 - angleDiff;
 
-            // Syarat Monster Muncul di Layar Kamera AR: Jarak <= 5 meter & Masuk Kerucut Cyan 60 Derajat
+            // Monster Muncul di Kamera AR jika jarak <= 5m dan HP mengarah ke monster (Kerucut 60°)
             if (d <= 5 && angleDiff <= 30) {
                 const imgM = document.getElementById("monster-ar");
                 imgM.src = activeMonster.gambar;
@@ -356,7 +368,7 @@
                 document.getElementById("petunjuk-text").style.color = "#00ffbb";
             } else if (d <= 5) {
                 document.getElementById("monster-ar").style.display = "none";
-                document.getElementById("petunjuk-text").innerText = "⚠️ Monster dekat! Putar HP kamu untuk mengarahkan kamera!";
+                document.getElementById("petunjuk-text").innerText = "⚠️ Monster sangat dekat! Putar HP kamu untuk mengarahkan kamera!";
                 document.getElementById("petunjuk-text").style.color = "#f59e0b";
             } else {
                 document.getElementById("monster-ar").style.display = "none";
@@ -381,18 +393,14 @@
             document.getElementById("battle-screen").style.display = "flex";
         }
 
-        // KETIK TOMBOL ABAIKAN: MONSTER HILANG, MONSTER BARU MUNCUL DI LOKASI BARU
         function abaikanMonster() {
             document.getElementById("battle-screen").style.display = "none";
             document.getElementById("monster-ar").style.display = "none";
             
             alert(`🏃 Kamu mengabaikan ${activeMonster.nama}. Mencari sasaran baru...`);
-            
-            // Panggil monster berikutnya di sekitarmu saat ini
             spawnNextMonster();
         }
 
-        // KETIK TOMBOL SERANG (JAWABAN BENAR): MONSTER HANCUR, MONSTER BARU MUNCUL DI LOKASI BARU
         async function serangMonster() {
             const jawabUser = parseFloat(document.getElementById("jawaban-input").value);
             if (isNaN(jawabUser)) return alert("Masukkan jawaban angka!");
@@ -413,7 +421,6 @@
                     });
                 } catch (e) { console.error(e); }
 
-                // Panggil monster berikutnya di sekitarmu saat ini
                 spawnNextMonster();
 
             } else {
@@ -421,12 +428,12 @@
             }
         }
 
-        function hitungJarak(lat1, lon1, lat2, lon2) {
-            const R = 6371e3;
-            const phi1 = lat1 * Math.PI/180; const phi2 = lat2 * Math.PI/180;
-            const dPhi = (lat2-lat1) * Math.PI/180; const dLon = (lon2-lon1) * Math.PI/180;
-            const a = Math.sin(dPhi/2) * Math.sin(dPhi/2) + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLon/2) * Math.sin(dLon/2);
-            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+        // FORMULA KHALIS JARAK METER PERSISI UNTUK SKALA LOKAL (EUCLIDEAN PLANAR GEODESIC)
+        function hitungJarakPresisi(lat1, lon1, lat2, lon2) {
+            const latRad = lat1 * Math.PI / 180;
+            const dy = (lat2 - lat1) * 111139;
+            const dx = (lon2 - lon1) * (111139 * Math.cos(latRad));
+            return Math.sqrt(dx * dx + dy * dy);
         }
 
         window.onload = startUpGame;
