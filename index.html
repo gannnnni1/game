@@ -128,7 +128,7 @@
 
     <div class="ui-layer">
         <div class="ui-element">
-            <h1>🎯 Math Hunter</h1>
+            <h1>🎯 Math AR Target Hunter</h1>
             <div class="stats-box">
                 <div>Pemain: <span id="nama-val" style="color: #4299e1;">...</span></div>
                 <div>Poin: <span id="poin-val" style="color: #48bb78;">0</span></div>
@@ -137,7 +137,7 @@
         </div>
 
         <div class="ui-element sonar-container">
-            <div style="font-weight: bold; color: #00ff66; font-size: 13px; letter-spacing: 1px;">📡 SCANNER </div>
+            <div style="font-weight: bold; color: #00ff66; font-size: 13px; letter-spacing: 1px;">📡 AR SCANNER RADAR (60°)</div>
             
             <div class="sonar-screen" id="sonar-screen">
                 <div class="camera-cone" id="camera-cone"></div>
@@ -159,7 +159,6 @@
             <h2 id="battle-monster-name" style="color: #e53e3e; margin: 0 0 10px 0;">Monster</h2>
             <p id="soal-text" style="font-size: 16px; background: #1a202c; padding: 12px; border-radius: 8px; font-weight: bold; text-align: left; border-left: 5px solid #e53e3e; margin-bottom: 10px;"></p>
             
-            <!-- GAMBAR LAMPIRAN SOAL DARI SPREADSHEET (KOLOM E) -->
             <img id="soal-image" src="" alt="Gambar Soal">
 
             <input type="number" id="jawaban-input" placeholder="Masukkan jawaban angka..." step="any"><br>
@@ -172,17 +171,18 @@
     </div>
 
     <script>
-        let centerLat = null, centerLon = null;
+        let currentLat = null, currentLon = null;
 
         // MASUKKAN URL APPS SCRIPT BERSIH MILIKMU DI SINI
-        const API_URL = "https://script.google.com/macros/s/AKfycbwv4xFqOaxWwI1YWqXQazS_PsIqbGA0bcmiJTHoChxzO7SuzMBbGPoFABbqwrhSf60CIw/exec"; 
-        const DEFAULT_MONSTER_IMG = "https://cdn-icons-png.flaticon.com/512/2589/2589301.png";
+     const API_URL = "https://script.google.com/macros/s/AKfycbwv4xFqOaxWwI1YWqXQazS_PsIqbGA0bcmiJTHoChxzO7SuzMBbGPoFABbqwrhSf60CIw/exec"; 
+     const DEFAULT_MONSTER_IMG = "https://cdn-icons-png.flaticon.com/512/2589/2589301.png";
 
         let namaSiswa = "";
         let antreanMonster = [], activeMonster = null;
         let totalPoin = 0, totalTargetSelesai = 0, totalMonsterAwal = 0;
         let deviceHeading = 0;
         let isDataLoaded = false;
+        let isFirstSpawn = true;
 
         function startUpGame() {
             while (!namaSiswa || namaSiswa.trim() === "") {
@@ -211,80 +211,83 @@
             }
         }
 
-      async function muatSoalCloud() {
-    try {
-        let res = await fetch(API_URL);
-        let databaseMonster = await res.json();
-        
-        let rawKeys = Object.keys(databaseMonster);
-        if (rawKeys.length === 0) return;
+        async function muatSoalCloud() {
+            try {
+                let res = await fetch(API_URL);
+                let databaseMonster = await res.json();
+                
+                let rawKeys = Object.keys(databaseMonster);
+                if (rawKeys.length === 0) return;
 
-        // 1. Pisahkan Monster Pertama dan Sisa Monster
-        let firstKey = rawKeys[0];
-        let restKeys = rawKeys.slice(1);
+                // Pisahkan Monster #1 (Urutan pertama tetap), sisanya diacak
+                let firstKey = rawKeys[0];
+                let restKeys = rawKeys.slice(1);
 
-        // 2. Acak Sisa Monster
-        for (let i = restKeys.length - 1; i > 0; i--) {
-            let j = Math.floor(Math.random() * (i + 1));
-            [restKeys[i], restKeys[j]] = [restKeys[j], restKeys[i]];
+                for (let i = restKeys.length - 1; i > 0; i--) {
+                    let j = Math.floor(Math.random() * (i + 1));
+                    [restKeys[i], restKeys[j]] = [restKeys[j], restKeys[i]];
+                }
+
+                let finalKeys = [firstKey, ...restKeys];
+                totalMonsterAwal = finalKeys.length;
+
+                // Simpan template data monster tanpa posisi koordinat dulu
+                antreanMonster = finalKeys.map(id => ({
+                    id: id,
+                    nama: databaseMonster[id].nama,
+                    gambar: databaseMonster[id].gambar || DEFAULT_MONSTER_IMG,
+                    soal: databaseMonster[id].soal,
+                    gambarSoal: databaseMonster[id].gambarSoal || "",
+                    jawab: databaseMonster[id].jawab
+                }));
+
+                // Munculkan Monster Pertama di tempat
+                spawnNextMonster();
+                isDataLoaded = true;
+            } catch (err) {
+                console.error("Gagal sinkronisasi:", err);
+                document.getElementById("jarak-text").innerText = "Koneksi Bermasalah";
+            }
         }
 
-        let finalKeys = [firstKey, ...restKeys];
-        totalMonsterAwal = finalKeys.length;
+        // SPAWN MONSTER DENGAN LOKASI DINAMIS PAS DIPANGGIL, LALU KUNCI KOORDINATNYA
+        function spawnNextMonster() {
+            if (antreanMonster.length === 0) {
+                activeMonster = null;
+                document.getElementById("target-count").innerText = `${totalTargetSelesai}/${totalMonsterAwal}`;
+                return;
+            }
 
-        antreanMonster = [];
-
-        // Faktor konversi presisi (Meter ke Derajat)
-        const METERS_PER_DEGREE_LAT = 111139; // ~111km per derajat latitude
-        const METERS_PER_DEGREE_LON = 111139 * Math.cos(centerLat * Math.PI / 180);
-
-        for (let i = 0; i < finalKeys.length; i++) {
-            let id = finalKeys[i];
+            let nextData = antreanMonster.shift();
             let finalLat, finalLon;
 
-            if (i === 0) {
-                // Monster #1 TEPAT di titik berdiri siswa (0 Meter)
-                finalLat = centerLat;
-                finalLon = centerLon;
+            if (isFirstSpawn) {
+                // Monster Pertama TEPAT berada di lokasi siswa saat ini (0 Meter)
+                finalLat = currentLat;
+                finalLon = currentLon;
+                isFirstSpawn = false;
             } else {
-                // Monster #2, #3, dst DIBATASI dekat: 3 sampai 8 Meter saja dari siswa!
-                let jarakMeter = 3 + Math.random() * 5; // Radius dekat: 3m s.d 8m
+                // Monster berikutnya ditempatkan acak 3-7 meter dari lokasi HP siswa SAAT INI
+                const METERS_PER_DEGREE_LAT = 111139;
+                const METERS_PER_DEGREE_LON = 111139 * Math.cos(currentLat * Math.PI / 180);
+
+                let jarakMeter = 3 + Math.random() * 4; // Radius 3 sampai 7 meter
                 let sudut = Math.random() * 2 * Math.PI; // Arah acak 360 derajat
 
-                // Hitung offset koordinat LANGSUNG dari posisi berdiri siswa (centerLat & centerLon)
                 let deltaLat = (jarakMeter * Math.cos(sudut)) / METERS_PER_DEGREE_LAT;
                 let deltaLon = (jarakMeter * Math.sin(sudut)) / METERS_PER_DEGREE_LON;
 
-                finalLat = centerLat + deltaLat;
-                finalLon = centerLon + deltaLon;
+                finalLat = currentLat + deltaLat;
+                finalLon = currentLon + deltaLon;
             }
 
-            antreanMonster.push({
-                id: id, 
-                lat: finalLat, 
-                lon: finalLon,
-                nama: databaseMonster[id].nama,
-                gambar: databaseMonster[id].gambar || DEFAULT_MONSTER_IMG,
-                soal: databaseMonster[id].soal,
-                gambarSoal: databaseMonster[id].gambarSoal || "",
-                jawab: databaseMonster[id].jawab
-            });
-        }
+            // Kunci koordinat GPS monster aktif ini agar tidak bergerak lagi!
+            activeMonster = {
+                ...nextData,
+                lat: finalLat,
+                lon: finalLon
+            };
 
-        munculkanMonsterBerikutnya();
-        isDataLoaded = true;
-    } catch (err) {
-        console.error("Gagal sinkronisasi:", err);
-        document.getElementById("jarak-text").innerText = "Koneksi Bermasalah";
-    }
-}
-        
-        function munculkanMonsterBerikutnya() {
-            if (antreanMonster.length > 0) {
-                activeMonster = antreanMonster.shift();
-            } else {
-                activeMonster = null;
-            }
             document.getElementById("target-count").innerText = `${totalTargetSelesai}/${totalMonsterAwal}`;
         }
 
@@ -295,16 +298,14 @@
         }
 
         async function prosesLokasiPemain(position) {
-            const userLat = position.coords.latitude;
-            const userLon = position.coords.longitude;
+            currentLat = position.coords.latitude;
+            currentLon = position.coords.longitude;
 
-            if (centerLat === null && centerLon === null) {
-                centerLat = userLat; centerLon = userLon;
+            if (!isDataLoaded) {
                 document.getElementById("jarak-text").innerText = "Mengunduh Soal...";
-                await muatSoalCloud(); return; 
+                await muatSoalCloud(); 
+                return; 
             }
-
-            if (!isDataLoaded) return;
 
             const sonarContainer = document.getElementById("sonar-monsters-container");
             sonarContainer.innerHTML = "";
@@ -318,11 +319,12 @@
 
             const RADAR_MAX_JARAK = 30, RADAR_RADIUS_PX = 80; 
 
-            let d = hitungJarak(userLat, userLon, activeMonster.lat, activeMonster.lon);
+            // Hitung jarak siswa bergerak relatif ke koordinat MONSTER YANG DIAM
+            let d = hitungJarak(currentLat, currentLon, activeMonster.lat, activeMonster.lon);
             document.getElementById("jarak-text").innerText = `${d.toFixed(1)} Meter`;
 
-            let dLat = activeMonster.lat - userLat;
-            let dLon = activeMonster.lon - userLon;
+            let dLat = activeMonster.lat - currentLat;
+            let dLon = activeMonster.lon - currentLon;
             let yMeter = dLat * 111000, xMeter = dLon * 109800;
 
             let monsterBearing = (Math.atan2(xMeter, yMeter) * 180 / Math.PI + 360) % 360;
@@ -345,14 +347,14 @@
             let angleDiff = Math.abs(monsterBearing - deviceHeading);
             if (angleDiff > 180) angleDiff = 360 - angleDiff;
 
-            // Monster Muncul di Kamera AR jika jarak <= 6m & masuk sudut kerucut 60 derajat
-            if (d <= 6 && angleDiff <= 30) {
+            // Syarat Monster Muncul di Layar Kamera AR: Jarak <= 5 meter & Masuk Kerucut Cyan 60 Derajat
+            if (d <= 5 && angleDiff <= 30) {
                 const imgM = document.getElementById("monster-ar");
                 imgM.src = activeMonster.gambar;
                 imgM.style.display = "block";
                 document.getElementById("petunjuk-text").innerText = "🎯 TARGET TERKUNCI! Ketuk monster untuk bertarung!";
                 document.getElementById("petunjuk-text").style.color = "#00ffbb";
-            } else if (d <= 6) {
+            } else if (d <= 5) {
                 document.getElementById("monster-ar").style.display = "none";
                 document.getElementById("petunjuk-text").innerText = "⚠️ Monster dekat! Putar HP kamu untuk mengarahkan kamera!";
                 document.getElementById("petunjuk-text").style.color = "#f59e0b";
@@ -367,7 +369,6 @@
             document.getElementById("battle-monster-name").innerText = activeMonster.nama;
             document.getElementById("soal-text").innerText = activeMonster.soal;
             
-            // Tampilkan Gambar Soal Jika Tersedia
             const imgSoalElem = document.getElementById("soal-image");
             if (activeMonster.gambarSoal && activeMonster.gambarSoal.trim() !== "") {
                 imgSoalElem.src = activeMonster.gambarSoal;
@@ -380,10 +381,18 @@
             document.getElementById("battle-screen").style.display = "flex";
         }
 
+        // KETIK TOMBOL ABAIKAN: MONSTER HILANG, MONSTER BARU MUNCUL DI LOKASI BARU
         function abaikanMonster() {
             document.getElementById("battle-screen").style.display = "none";
+            document.getElementById("monster-ar").style.display = "none";
+            
+            alert(`🏃 Kamu mengabaikan ${activeMonster.nama}. Mencari sasaran baru...`);
+            
+            // Panggil monster berikutnya di sekitarmu saat ini
+            spawnNextMonster();
         }
 
+        // KETIK TOMBOL SERANG (JAWABAN BENAR): MONSTER HANCUR, MONSTER BARU MUNCUL DI LOKASI BARU
         async function serangMonster() {
             const jawabUser = parseFloat(document.getElementById("jawaban-input").value);
             if (isNaN(jawabUser)) return alert("Masukkan jawaban angka!");
@@ -391,7 +400,8 @@
             if (Math.abs(jawabUser - activeMonster.jawab) < 0.01) {
                 alert(`💥 DAR! ${activeMonster.nama} hancur. +100 Poin!`);
                 
-                totalPoin += 100; totalTargetSelesai += 1;
+                totalPoin += 100; 
+                totalTargetSelesai += 1;
                 document.getElementById("poin-val").innerText = totalPoin;
                 document.getElementById("battle-screen").style.display = "none";
                 document.getElementById("monster-ar").style.display = "none";
@@ -403,7 +413,9 @@
                     });
                 } catch (e) { console.error(e); }
 
-                munculkanMonsterBerikutnya();
+                // Panggil monster berikutnya di sekitarmu saat ini
+                spawnNextMonster();
+
             } else {
                 alert("🛡️ Meleset! Jawabanmu salah, hitung kembali dengan cermat.");
             }
