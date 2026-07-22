@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Math AR Hunter: Play Mode</title>
+    <title>Math AR Target Hunter</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -11,17 +11,14 @@
             background-color: black; color: white;
             text-align: center; overflow: hidden;
         }
-        /* Video Kamera Utama - BACKGROUND AR */
         #webcam {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             object-fit: cover; z-index: 1;
         }
-        /* Lapisan UI di atas Kamera */
         .ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; justify-content: space-between;
-            z-index: 5; box-sizing: border-box; padding: 15px;
-            pointer-events: none;
+            z-index: 5; box-sizing: border-box; padding: 15px; pointer-events: none;
         }
         .ui-element { pointer-events: auto; }
 
@@ -34,80 +31,62 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 1px solid #4a5568;
         }
 
-        /* SONAR RADAR BAWAH LAUT */
+        /* RADAR SONAR DENGAN SOROTAN KERUCUT 60 DERAJAT */
         .sonar-container {
             background: rgba(10, 25, 20, 0.9);
-            padding: 15px; border-radius: 16px; 
+            padding: 12px; border-radius: 16px; 
             border: 2px solid #00ff66; margin-bottom: 10px;
-            box-shadow: 0 0 20px rgba(0, 255, 102, 0.3);
-            backdrop-filter: blur(5px);
+            box-shadow: 0 0 20px rgba(0, 255, 102, 0.3); backdrop-filter: blur(5px);
             display: flex; flex-direction: column; align-items: center;
         }
 
         .sonar-screen {
-            position: relative;
-            width: 160px; height: 160px;
-            border-radius: 50%;
-            border: 2px solid #00ff66;
+            position: relative; width: 160px; height: 160px;
+            border-radius: 50%; border: 2px solid #00ff66;
             background: radial-gradient(circle, rgba(0,255,102,0.15) 0%, rgba(0,0,0,0.8) 80%);
-            overflow: hidden;
-            margin: 10px 0;
+            overflow: hidden; margin: 8px 0;
+        }
+
+        .camera-cone {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: conic-gradient(from -30deg at 50% 50%, rgba(0, 255, 255, 0.35) 0deg, rgba(0, 255, 255, 0.35) 60deg, transparent 60deg);
+            pointer-events: none; z-index: 2;
         }
 
         .sonar-sweep {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: conic-gradient(from 0deg, rgba(0,255,102,0.4) 0deg, transparent 90deg);
-            border-radius: 50%;
-            animation: sweep-rotation 4s linear infinite;
-            pointer-events: none;
+            background: conic-gradient(from 0deg, rgba(0,255,102,0.3) 0deg, transparent 90deg);
+            border-radius: 50%; animation: sweep-rotation 4s linear infinite; pointer-events: none;
         }
         @keyframes sweep-rotation {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+            from { transform: rotate(0deg); } to { transform: rotate(360deg); }
         }
 
         .sonar-ring {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            border: 1px dashed rgba(0, 255, 102, 0.3);
-            border-radius: 50%;
-            pointer-events: none;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            border: 1px dashed rgba(0, 255, 102, 0.3); border-radius: 50%; pointer-events: none;
         }
         .ring-1 { width: 50px; height: 50px; }
         .ring-2 { width: 100px; height: 100px; }
 
         .sonar-blip {
-            position: absolute;
-            width: 10px; height: 10px;
-            background-color: #ff3333;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            box-shadow: 0 0 8px #ff3333;
-            animation: blip-blink 1.5s infinite;
+            position: absolute; width: 12px; height: 12px;
+            background-color: #ff3333; border-radius: 50%;
+            transform: translate(-50%, -50%); box-shadow: 0 0 10px #ff3333; z-index: 3;
+            animation: blip-blink 1.2s infinite;
         }
-        @keyframes blip-blink {
-            0% { opacity: 0.3; }
-            50% { opacity: 1; }
-            100% { opacity: 0.3; }
-        }
+        @keyframes blip-blink { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 
         .player-blip {
-            position: absolute; top: 50%; left: 50%;
-            width: 8px; height: 8px;
-            background-color: #00ffbb;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            box-shadow: 0 0 10px #00ffbb;
+            position: absolute; top: 50%; left: 50%; width: 8px; height: 8px;
+            background-color: #00ffbb; border-radius: 50%; transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px #00ffbb; z-index: 4;
         }
 
-        /* ELEMEN GAMBAR MONSTER AR */
         #monster-ar {
             display: none; position: fixed; top: 45%; left: 50%;
-            transform: translate(-50%, -50%); 
-            width: 180px; height: 180px;
-            object-fit: contain;
-            z-index: 2; cursor: pointer;
-            filter: drop-shadow(0px 10px 15px rgba(0,0,0,0.8));
+            transform: translate(-50%, -50%); width: 180px; height: 180px; object-fit: contain;
+            z-index: 2; cursor: pointer; filter: drop-shadow(0px 10px 15px rgba(0,0,0,0.8));
             animation: float 1.2s ease-in-out infinite alternate;
         }
         @keyframes float {
@@ -115,15 +94,21 @@
             to { transform: translate(-50%, -50%) translateY(-20px) scale(1.05); }
         }
 
-        /* POP-UP PERTARUNGAN */
         .battle-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(26, 32, 44, 0.95); align-items: center; justify-content: center; z-index: 10;
         }
         .battle-box {
-            background: #2d3748; padding: 25px; border-radius: 12px; width: 85%; max-width: 360px;
+            background: #2d3748; padding: 20px; border-radius: 12px; width: 85%; max-width: 380px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 2px solid #e53e3e;
+            max-height: 90vh; overflow-y: auto;
         }
+        
+        #soal-image {
+            width: 100%; max-height: 200px; object-fit: contain;
+            border-radius: 8px; margin-bottom: 12px; border: 1px solid #4a5568; display: none;
+        }
+
         input {
             width: 80%; padding: 12px; font-size: 18px; margin-bottom: 15px;
             background: #1a202c; color: white; border: 2px solid #4a5568; border-radius: 6px; text-align: center;
@@ -138,27 +123,24 @@
 </head>
 <body>
 
-    <!-- Video Kamera Belakang HP -->
     <video id="webcam" autoplay playsinline></video>
-
-    <!-- Gambar Monster AR yang Muncul -->
     <img id="monster-ar" onclick="picuPertarungan()" src="" alt="Monster AR">
 
-    <!-- Lapisan Interface (UI) -->
     <div class="ui-layer">
         <div class="ui-element">
-            <h1>👾 Math AR Hunter</h1>
+            <h1>🎯 Math Hunter</h1>
             <div class="stats-box">
                 <div>Pemain: <span id="nama-val" style="color: #4299e1;">...</span></div>
                 <div>Poin: <span id="poin-val" style="color: #48bb78;">0</span></div>
-                <div>GPS: <span id="gps-status" style="color: #cbd5e0;">Mencari...</span></div>
+                <div>Target: <span id="target-count" style="color: #ed8936;">0/0</span></div>
             </div>
         </div>
 
         <div class="ui-element sonar-container">
-            <div style="font-weight: bold; color: #00ff66; font-size: 14px; letter-spacing: 1px;">📡 SONAR TACTICAL RADAR</div>
+            <div style="font-weight: bold; color: #00ff66; font-size: 13px; letter-spacing: 1px;">📡 SCANNER </div>
             
             <div class="sonar-screen" id="sonar-screen">
+                <div class="camera-cone" id="camera-cone"></div>
                 <div class="sonar-sweep"></div>
                 <div class="sonar-ring ring-1"></div>
                 <div class="sonar-ring ring-2"></div>
@@ -166,16 +148,20 @@
                 <div id="sonar-monsters-container"></div>
             </div>
 
-            <p id="jarak-text" style="font-size: 20px; font-weight: bold; color: #00ff66; margin: 2px 0;">Menunggu GPS...</p>
-            <p id="petunjuk-text" style="font-size: 11px; color: #a0aec0; margin: 0; text-align: center;">Sonar aktif. Titik merah menunjukkan posisi monster di sekitarmu.</p>
+            <p id="jarak-text" style="font-size: 18px; font-weight: bold; color: #00ff66; margin: 2px 0;">Menunggu GPS & Kompas...</p>
+            <p id="petunjuk-text" style="font-size: 11px; color: #a0aec0; margin: 0; text-align: center;">Arahkan HP ke titik merah hingga masuk dalam sorotan kerucut cyan!</p>
         </div>
     </div>
 
-    <!-- Pop-up Soal -->
+    <!-- POP-UP PERTARUNGAN -->
     <div class="battle-overlay" id="battle-screen">
         <div class="battle-box">
             <h2 id="battle-monster-name" style="color: #e53e3e; margin: 0 0 10px 0;">Monster</h2>
-            <p id="soal-text" style="font-size: 18px; background: #1a202c; padding: 15px; border-radius: 8px; font-weight: bold; text-align: left; border-left: 5px solid #e53e3e;"></p>
+            <p id="soal-text" style="font-size: 16px; background: #1a202c; padding: 12px; border-radius: 8px; font-weight: bold; text-align: left; border-left: 5px solid #e53e3e; margin-bottom: 10px;"></p>
+            
+            <!-- GAMBAR LAMPIRAN SOAL DARI SPREADSHEET (KOLOM E) -->
+            <img id="soal-image" src="" alt="Gambar Soal">
+
             <input type="number" id="jawaban-input" placeholder="Masukkan jawaban angka..." step="any"><br>
             
             <div style="display: flex; gap: 10px; width: 87%; margin: 0 auto;">
@@ -186,20 +172,16 @@
     </div>
 
     <script>
-        let centerLat = null; 
-        let centerLon = null; 
+        let centerLat = null, centerLon = null;
 
-        // GANTI DENGAN URL WEB APP GOOGLE APPS SCRIPT-MU
-        const API_URL = "https://script.google.com/macros/s/AKfycbwdyX_HvzPNCgWJ05yR5MyAVIFwwp75gDQVaSQTefK1Hxtqr8R72huDEMLyAwC3cbO4/exec"; 
-
-        // Gambar monster bawaan jika URL di database kosong
+        // MASUKKAN URL APPS SCRIPT BERSIH MILIKMU DI SINI
+        const API_URL = "https://script.google.com/macros/s/AKfycbwv4xFqOaxWwI1YWqXQazS_PsIqbGA0bcmiJTHoChxzO7SuzMBbGPoFABbqwrhSf60CIw/exec"; 
         const DEFAULT_MONSTER_IMG = "https://cdn-icons-png.flaticon.com/512/2589/2589301.png";
 
         let namaSiswa = "";
-        let daftarMonster = [];
-        let totalPoin = 0;
-        let monsterTerdekat = null;
-        let videoStream = null;
+        let antreanMonster = [], activeMonster = null;
+        let totalPoin = 0, totalTargetSelesai = 0, totalMonsterAwal = 0;
+        let deviceHeading = 0;
         let isDataLoaded = false;
 
         function startUpGame() {
@@ -209,20 +191,24 @@
             document.getElementById("nama-val").innerText = namaSiswa;
 
             nyalakanKameraAwal();
+            aktifkanKompasHP();
             mulaiTrackingGPS();
         }
 
         function nyalakanKameraAwal() {
             const video = document.getElementById("webcam");
             navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-                .then(stream => { 
-                    videoStream = stream; 
-                    video.srcObject = stream; 
-                })
-                .catch(err => {
-                    console.error("Gagal membuka kamera: ", err);
-                    alert("Aplikasi memerlukan izin kamera belakang untuk simulasi AR!");
-                });
+                .then(stream => { video.srcObject = stream; })
+                .catch(err => { alert("Izin kamera diperlukan!"); });
+        }
+
+        function aktifkanKompasHP() {
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', function(e) {
+                    if (e.webkitCompassHeading) deviceHeading = e.webkitCompassHeading;
+                    else if (e.alpha) deviceHeading = 360 - e.alpha;
+                }, true);
+            }
         }
 
         async function muatSoalCloud() {
@@ -230,193 +216,186 @@
                 let res = await fetch(API_URL);
                 let databaseMonster = await res.json();
                 
-                daftarMonster = [];
-                let refLat = centerLat;
-                let refLon = centerLon;
-                let keys = Object.keys(databaseMonster);
+                let rawKeys = Object.keys(databaseMonster);
+                if (rawKeys.length === 0) return;
 
-                for (let i = 0; i < keys.length; i++) {
-                    let id = keys[i];
+                let firstKey = rawKeys[0];
+                let restKeys = rawKeys.slice(1);
+
+                // Acak sisa monster (Urutan acak untuk tiap siswa)
+                for (let i = restKeys.length - 1; i > 0; i--) {
+                    let j = Math.floor(Math.random() * (i + 1));
+                    [restKeys[i], restKeys[j]] = [restKeys[j], restKeys[i]];
+                }
+
+                let finalKeys = [firstKey, ...restKeys];
+                totalMonsterAwal = finalKeys.length;
+
+                antreanMonster = [];
+                let refLat = centerLat, refLon = centerLon;
+
+                for (let i = 0; i < finalKeys.length; i++) {
+                    let id = finalKeys[i];
                     let finalLat, finalLon;
 
                     if (i === 0) {
-                        finalLat = centerLat;
-                        finalLon = centerLon;
+                        finalLat = centerLat; finalLon = centerLon; // 0 meter dari tempat berdiri
                     } else {
-                        const konversiLat = 111000;
-                        const konversiLon = 109800;
-                        
+                        const konversiLat = 111000, konversiLon = 109800;
                         let sudut = Math.random() * 2 * Math.PI;
-                        let jarakMeter = 5 + Math.random() * 5; 
+                        let jarakMeter = 5 + Math.random() * 5; // Spasi berantai 5-10m
 
-                        let deltaLat = (jarakMeter * Math.sin(sudut)) / konversiLat;
-                        let deltaLon = (jarakMeter * Math.cos(sudut)) / konversiLon;
-
-                        finalLat = refLat + deltaLat;
-                        finalLon = refLon + deltaLon;
+                        finalLat = refLat + ((jarakMeter * Math.sin(sudut)) / konversiLat);
+                        finalLon = refLon + ((jarakMeter * Math.cos(sudut)) / konversiLon);
                     }
-                    
-                    daftarMonster.push({
+
+                    antreanMonster.push({
                         id: id, lat: finalLat, lon: finalLon,
                         nama: databaseMonster[id].nama,
-                        gambar: databaseMonster[id].gambar || DEFAULT_MONSTER_IMG, // MENGGUNAKAN GAMBAR
+                        gambar: databaseMonster[id].gambar || DEFAULT_MONSTER_IMG,
                         soal: databaseMonster[id].soal,
-                        jawab: databaseMonster[id].jawab,
-                        kalah: false
+                        gambarSoal: databaseMonster[id].gambarSoal || "",
+                        jawab: databaseMonster[id].jawab
                     });
 
-                    refLat = finalLat;
-                    refLon = finalLon;
+                    refLat = finalLat; refLon = finalLon;
                 }
-                
+
+                munculkanMonsterBerikutnya();
                 isDataLoaded = true;
-                document.getElementById("jarak-text").innerText = "Mencari Sinyal...";
-                document.getElementById("petunjuk-text").innerText = "Sistem siap. Carilah monster di sekitarmu!";
             } catch (err) {
                 console.error("Gagal sinkronisasi:", err);
                 document.getElementById("jarak-text").innerText = "Koneksi Bermasalah";
             }
         }
 
+        function munculkanMonsterBerikutnya() {
+            if (antreanMonster.length > 0) {
+                activeMonster = antreanMonster.shift();
+            } else {
+                activeMonster = null;
+            }
+            document.getElementById("target-count").innerText = `${totalTargetSelesai}/${totalMonsterAwal}`;
+        }
+
         function mulaiTrackingGPS() {
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(prosesLokasiPemain, errorGPS, { 
-                    enableHighAccuracy: true,
-                    maximumAge: 0,
-                    timeout: 7000 
-                });
-            } else {
-                alert("GPS Geolocation tidak didukung pada perangkat ini.");
-            }
+                navigator.geolocation.watchPosition(prosesLokasiPemain, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 7000 });
+            } else { alert("GPS tidak didukung!"); }
         }
 
         async function prosesLokasiPemain(position) {
             const userLat = position.coords.latitude;
             const userLon = position.coords.longitude;
-            
-            document.getElementById("gps-status").innerText = "Aktif";
-            document.getElementById("gps-status").style.color = "#48bb78";
 
             if (centerLat === null && centerLon === null) {
-                centerLat = userLat;
-                centerLon = userLon;
+                centerLat = userLat; centerLon = userLon;
                 document.getElementById("jarak-text").innerText = "Mengunduh Soal...";
-                await muatSoalCloud();
-                return; 
+                await muatSoalCloud(); return; 
             }
 
             if (!isDataLoaded) return;
 
-            let jarakTerkecil = Infinity;
-            let targetMonster = null;
-            
             const sonarContainer = document.getElementById("sonar-monsters-container");
             sonarContainer.innerHTML = "";
 
-            const RADAR_MAX_JARAK = 30; 
-            const RADAR_RADIUS_PX = 80;  
-
-            daftarMonster.forEach(m => {
-                if (!m.kalah) {
-                    let d = hitungJarak(userLat, userLon, m.lat, m.lon);
-                    
-                    if (d < jarakTerkecil) {
-                        jarakTerkecil = d;
-                        targetMonster = m;
-                    }
-
-                    if (d <= RADAR_MAX_JARAK) {
-                        let dLat = m.lat - userLat;
-                        let dLon = m.lon - userLon;
-
-                        const konversiLat = 111000;
-                        const konversiLon = 109800;
-                        let yMeter = dLat * konversiLat;
-                        let xMeter = dLon * konversiLon;
-
-                        let totalDist = Math.sqrt(xMeter * xMeter + yMeter * yMeter);
-
-                        if (totalDist > 0) {
-                            let ratio = totalDist / RADAR_MAX_JARAK;
-                            let distPx = ratio * RADAR_RADIUS_PX;
-
-                            let angle = Math.atan2(yMeter, xMeter);
-
-                            let xPx = RADAR_RADIUS_PX + distPx * Math.cos(angle);
-                            let yPx = RADAR_RADIUS_PX - distPx * Math.sin(angle);
-
-                            let blip = document.createElement("div");
-                            blip.className = "sonar-blip";
-                            blip.style.left = `${xPx}px`;
-                            blip.style.top = `${yPx}px`;
-                            
-                            blip.title = `${m.nama} (${d.toFixed(1)}m)`;
-                            sonarContainer.appendChild(blip);
-                        }
-                    }
-                }
-            });
-
-            monsterTerdekat = targetMonster;
-
-            if (monsterTerdekat) {
-                document.getElementById("jarak-text").innerText = `${jarakTerkecil.toFixed(1)} Meter`;
-                
-                // JIKA MENDETEKSI MONSTER (<= 6 METER) -> TAMPILKAN GAMBAR DARI DATABASE
-                if (jarakTerkecil <= 6) {
-                    const imgMonster = document.getElementById("monster-ar");
-                    imgMonster.src = monsterTerdekat.gambar; 
-                    imgMonster.style.display = "block";
-                } else {
-                    document.getElementById("monster-ar").style.display = "none";
-                }
-            } else {
-                document.getElementById("jarak-text").innerText = "Area Aman!";
-                document.getElementById("petunjuk-text").innerText = "Hebat! Semua monster matematika di rute ini telah ditaklukkan.";
+            if (!activeMonster) {
+                document.getElementById("jarak-text").innerText = "SEMUA TARGET DITAKLUKKAN!";
+                document.getElementById("petunjuk-text").innerText = "Luar biasa! Seluruh monster matematika telah dikalahkan.";
                 document.getElementById("monster-ar").style.display = "none";
+                return;
+            }
+
+            const RADAR_MAX_JARAK = 30, RADAR_RADIUS_PX = 80; 
+
+            let d = hitungJarak(userLat, userLon, activeMonster.lat, activeMonster.lon);
+            document.getElementById("jarak-text").innerText = `${d.toFixed(1)} Meter`;
+
+            let dLat = activeMonster.lat - userLat;
+            let dLon = activeMonster.lon - userLon;
+            let yMeter = dLat * 111000, xMeter = dLon * 109800;
+
+            let monsterBearing = (Math.atan2(xMeter, yMeter) * 180 / Math.PI + 360) % 360;
+
+            let totalDist = Math.sqrt(xMeter * xMeter + yMeter * yMeter);
+            if (totalDist <= RADAR_MAX_JARAK) {
+                let ratio = totalDist / RADAR_MAX_JARAK;
+                let distPx = ratio * RADAR_RADIUS_PX;
+
+                let radarAngleRad = (monsterBearing - deviceHeading - 90) * Math.PI / 180;
+                let xPx = RADAR_RADIUS_PX + distPx * Math.cos(radarAngleRad);
+                let yPx = RADAR_RADIUS_PX - distPx * Math.sin(radarAngleRad);
+
+                let blip = document.createElement("div");
+                blip.className = "sonar-blip";
+                blip.style.left = `${xPx}px`; blip.style.top = `${yPx}px`;
+                sonarContainer.appendChild(blip);
+            }
+
+            let angleDiff = Math.abs(monsterBearing - deviceHeading);
+            if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+            // Monster Muncul di Kamera AR jika jarak <= 6m & masuk sudut kerucut 60 derajat
+            if (d <= 6 && angleDiff <= 30) {
+                const imgM = document.getElementById("monster-ar");
+                imgM.src = activeMonster.gambar;
+                imgM.style.display = "block";
+                document.getElementById("petunjuk-text").innerText = "🎯 TARGET TERKUNCI! Ketuk monster untuk bertarung!";
+                document.getElementById("petunjuk-text").style.color = "#00ffbb";
+            } else if (d <= 6) {
+                document.getElementById("monster-ar").style.display = "none";
+                document.getElementById("petunjuk-text").innerText = "⚠️ Monster dekat! Putar HP kamu untuk mengarahkan kamera!";
+                document.getElementById("petunjuk-text").style.color = "#f59e0b";
+            } else {
+                document.getElementById("monster-ar").style.display = "none";
+                document.getElementById("petunjuk-text").innerText = "Arahkan HP dan berjalanlah mendekati titik merah pada radar sonar.";
+                document.getElementById("petunjuk-text").style.color = "#a0aec0";
             }
         }
 
         function picuPertarungan() {
-            document.getElementById("battle-monster-name").innerText = monsterTerdekat.nama;
-            document.getElementById("soal-text").innerText = monsterTerdekat.soal;
+            document.getElementById("battle-monster-name").innerText = activeMonster.nama;
+            document.getElementById("soal-text").innerText = activeMonster.soal;
+            
+            // Tampilkan Gambar Soal Jika Tersedia
+            const imgSoalElem = document.getElementById("soal-image");
+            if (activeMonster.gambarSoal && activeMonster.gambarSoal.trim() !== "") {
+                imgSoalElem.src = activeMonster.gambarSoal;
+                imgSoalElem.style.display = "block";
+            } else {
+                imgSoalElem.style.display = "none";
+            }
+
             document.getElementById("jawaban-input").value = "";
             document.getElementById("battle-screen").style.display = "flex";
         }
 
         function abaikanMonster() {
             document.getElementById("battle-screen").style.display = "none";
-            alert("Kamu memilih untuk mengabaikan monster ini. Tetap waspada di sekitar area!");
         }
 
         async function serangMonster() {
-            const jawabanUser = parseFloat(document.getElementById("jawaban-input").value);
-            if (isNaN(jawabanUser)) return alert("Masukkan jawaban angka!");
+            const jawabUser = parseFloat(document.getElementById("jawaban-input").value);
+            if (isNaN(jawabUser)) return alert("Masukkan jawaban angka!");
 
-            if (Math.abs(jawabanUser - monsterTerdekat.jawab) < 0.01) {
-                alert(`💥 DAR! Serangan telak!\n${monsterTerdekat.nama} hancur. Kamu mendapatkan +100 Poin!`);
+            if (Math.abs(jawabUser - activeMonster.jawab) < 0.01) {
+                alert(`💥 DAR! ${activeMonster.nama} hancur. +100 Poin!`);
                 
-                monsterTerdekat.kalah = true;
-                totalPoin += 100;
+                totalPoin += 100; totalTargetSelesai += 1;
                 document.getElementById("poin-val").innerText = totalPoin;
                 document.getElementById("battle-screen").style.display = "none";
                 document.getElementById("monster-ar").style.display = "none";
-                
+
                 try {
                     await fetch(API_URL, {
                         method: "POST",
-                        body: JSON.stringify({
-                            action: "update_skor",
-                            nama: namaSiswa,
-                            poin: totalPoin
-                        })
+                        body: JSON.stringify({ action: "update_skor", nama: namaSiswa, poin: totalPoin })
                     });
-                } catch (err) {
-                    console.error("Gagal memperbarui skor ke server cloud:", err);
-                }
-                
+                } catch (e) { console.error(e); }
+
+                munculkanMonsterBerikutnya();
             } else {
-                alert("🛡️ Meleset! Jawabanmu salah, monster menyerang balik! Hitung kembali dengan teliti.");
+                alert("🛡️ Meleset! Jawabanmu salah, hitung kembali dengan cermat.");
             }
         }
 
@@ -426,14 +405,6 @@
             const dPhi = (lat2-lat1) * Math.PI/180; const dLon = (lon2-lon1) * Math.PI/180;
             const a = Math.sin(dPhi/2) * Math.sin(dPhi/2) + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLon/2) * Math.sin(dLon/2);
             return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-        }
-
-        function errorGPS(err) { 
-            console.warn(`GPS Error (${err.code}): ${err.message}`);
-            document.getElementById("gps-status").innerText = "Mati";
-            document.getElementById("gps-status").style.color = "#e53e3e";
-            document.getElementById("jarak-text").innerText = "GPS Terkunci";
-            document.getElementById("petunjuk-text").innerText = "Aktifkan GPS HP dan berikan izin lokasi tingkat tinggi pada browser.";
         }
 
         window.onload = startUpGame;

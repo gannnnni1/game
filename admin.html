@@ -3,68 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel - Math AR Monster</title>
+    <title>Panel Admin: Input Soal Math AR</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1a202c; color: white; padding: 20px; }
-        .box { max-width: 600px; margin: 0 auto; background: #2d3748; padding: 20px; border-radius: 12px; }
-        input, textarea { width: 95%; padding: 10px; margin: 8px 0; background: #1a202c; color: white; border: 1px solid #4a5568; border-radius: 6px; }
-        button { background: #3182ce; color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 10px; }
-        button:hover { background: #2b6cb0; }
-        .danger { background: #e53e3e; }
-        .danger:hover { background: #c53030; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a202c; color: white; padding: 20px; }
+        .container { max-width: 700px; margin: 0 auto; background: #2d3748; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        h2 { color: #ed8936; margin-top: 0; }
+        label { display: block; margin-top: 10px; font-weight: bold; font-size: 14px; color: #cbd5e0; }
+        input, textarea { width: 100%; padding: 10px; margin-top: 5px; background: #1a202c; color: white; border: 1px solid #4a5568; border-radius: 6px; box-sizing: border-box; }
+        button { background: #48bb78; color: white; border: none; padding: 12px 20px; margin-top: 15px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; }
+        button:hover { background: #38a169; }
+        table { width: 100%; border-collapse: collapse; margin-top: 25px; }
+        th, td { border: 1px solid #4a5568; padding: 10px; text-align: left; font-size: 13px; }
+        th { background: #1a202c; color: #ed8936; }
+        .btn-del { background: #e53e3e; padding: 5px 10px; font-size: 12px; width: auto; margin: 0; }
+        .btn-del:hover { background: #c53030; }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h2>⚙️ Admin Panel - Kelola Monster AR</h2>
-        <form id="form-monster">
-            <label>ID Monster (cth: monster1)</label>
-            <input type="text" id="id" required>
-            
-            <label>Nama Monster</label>
-            <input type="text" id="nama" required>
-            
-            <label>URL Gambar Monster (PNG Transparan)</label>
-            <input type="url" id="gambar" placeholder="https://domain.com/monster.png" required>
-            
-            <label>Soal Matematika (HOTS)</label>
-            <textarea id="soal" rows="3" required></textarea>
-            
-            <label>Kunci Jawaban (Angka)</label>
-            <input type="number" id="jawab" step="any" required>
-            
-            <button type="submit">💾 Simpan / Update Monster</button>
-            <button type="button" class="danger" onclick="hapusMonster()">🗑️ Hapus Monster</button>
+    <div class="container">
+        <h2>📝 Panel Input Soal & Monster</h2>
+        <form id="form-soal">
+            <label>ID Monster (Unik, misal: monster1, monster2):</label>
+            <input type="text" id="id" required placeholder="monster1">
+
+            <label>Nama Monster / Topik:</label>
+            <input type="text" id="nama" required placeholder="Slime Trigonometri">
+
+            <label>URL Gambar Monster (PNG/GIF):</label>
+            <input type="url" id="gambar" required placeholder="https://cdn-icons-png.flaticon.com/512/2589/2589301.png">
+
+            <label>Teks Soal Matematika:</label>
+            <textarea id="soal" rows="3" required placeholder="Hitunglah luas segitiga berikut..."></textarea>
+
+            <label>URL Gambar Lampiran Soal (Opsional, untuk grafik/diagram):</label>
+            <input type="url" id="gambarSoal" placeholder="https://i.ibb.co/xyz/soal-segitiga.png">
+
+            <label>Kunci Jawaban (Angka):</label>
+            <input type="number" id="jawab" step="any" required placeholder="24">
+
+            <button type="submit" id="btn-simpan">💾 SIMPAN DATA SOAL</button>
         </form>
+
+        <h3 style="margin-top: 30px; color: #4299e1;">📋 Daftar Monster Saat Ini</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th><th>Nama</th><th>Soal</th><th>Kunci</th><th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="tabel-body"></tbody>
+        </table>
     </div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbwdyX_HvzPNCgWJ05yR5MyAVIFwwp75gDQVaSQTefK1Hxtqr8R72huDEMLyAwC3cbO4/exec"; // Ganti dengan URL Apps Script-mu
+        const API_URL = "https://script.google.com/macros/s/AKfycbwv4xFqOaxWwI1YWqXQazS_PsIqbGA0bcmiJTHoChxzO7SuzMBbGPoFABbqwrhSf60CIw/exec"; 
 
-        document.getElementById("form-monster").addEventListener("submit", async (e) => {
+        async function muatData() {
+            try {
+                let res = await fetch(API_URL);
+                let data = await res.json();
+                let html = "";
+                for (let key in data) {
+                    html += `<tr>
+                        <td><b>${key}</b></td>
+                        <td>${data[key].nama}</td>
+                        <td>${data[key].soal}</td>
+                        <td><b>${data[key].jawab}</b></td>
+                        <td><button class="btn-del" onclick="hapusData('${key}')">Hapus</button></td>
+                    </tr>`;
+                }
+                document.getElementById("tabel-body").innerHTML = html;
+            } catch (e) { console.error(e); }
+        }
+
+        document.getElementById("form-soal").onsubmit = async function(e) {
             e.preventDefault();
-            const data = {
+            document.getElementById("btn-simpan").innerText = "Menyimpan...";
+            
+            let payload = {
                 action: "save",
                 id: document.getElementById("id").value,
                 nama: document.getElementById("nama").value,
                 gambar: document.getElementById("gambar").value,
                 soal: document.getElementById("soal").value,
+                gambarSoal: document.getElementById("gambarSoal").value,
                 jawab: parseFloat(document.getElementById("jawab").value)
             };
-            await fetch(API_URL, { method: "POST", body: JSON.stringify(data) });
-            alert("Data Monster Berhasil Disimpan!");
-            e.target.reset();
-        });
 
-        async function hapusMonster() {
-            const id = document.getElementById("id").value;
-            if (!id) return alert("Masukkan ID Monster yang ingin dihapus!");
-            if (confirm(`Hapus ${id}?`)) {
+            await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+            alert("Berhasil menyimpan data!");
+            document.getElementById("form-soal").reset();
+            document.getElementById("btn-simpan").innerText = "💾 SIMPAN DATA SOAL";
+            muatData();
+        };
+
+        async function hapusData(id) {
+            if (confirm(`Yakin ingin menghapus ${id}?`)) {
                 await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "delete", id: id }) });
-                alert("Monster Berhasil Dihapus!");
-                document.getElementById("form-monster").reset();
+                muatData();
             }
         }
+
+        window.onload = muatData;
     </script>
 </body>
 </html>
