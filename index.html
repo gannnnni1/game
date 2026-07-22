@@ -31,7 +31,7 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 1px solid #4a5568;
         }
 
-        /* RADAR SONAR DENGAN SOROTAN KERUCUT 60 DERAJAT */
+        /* RADAR SONAR */
         .sonar-container {
             background: rgba(10, 25, 20, 0.9);
             padding: 12px; border-radius: 16px; 
@@ -148,8 +148,8 @@
                 <div id="sonar-monsters-container"></div>
             </div>
 
-            <p id="jarak-text" style="font-size: 18px; font-weight: bold; color: #00ff66; margin: 2px 0;">Mencari Sinyal GPS Akurat...</p>
-            <p id="petunjuk-text" style="font-size: 11px; color: #a0aec0; margin: 0; text-align: center;">Berdirilah di area terbuka agar GPS terkunci presisi.</p>
+            <p id="jarak-text" style="font-size: 18px; font-weight: bold; color: #00ff66; margin: 2px 0;">Menghubungkan Sensor...</p>
+            <p id="petunjuk-text" style="font-size: 11px; color: #a0aec0; margin: 0; text-align: center;">Arahkan HP ke titik merah pada radar lalu berjalanlah mendekat.</p>
         </div>
     </div>
 
@@ -171,12 +171,9 @@
     </div>
 
     <script>
-        let rawLat = null, rawLon = null;
-        let smoothLat = null, smoothLon = null; // Koordinat yang disaring agar halus
-
-        // PASTA URL WEB APP GOOGLE APPS SCRIPT KAMU DI SINI
-            const API_URL = "https://script.google.com/macros/s/AKfycbwv4xFqOaxWwI1YWqXQazS_PsIqbGA0bcmiJTHoChxzO7SuzMBbGPoFABbqwrhSf60CIw/exec"; 
-     const DEFAULT_MONSTER_IMG = "https://cdn-icons-png.flaticon.com/512/2589/2589301.png";
+        // MASUKKAN URL APPS SCRIPT KELOLAANMU DI SINI
+          const API_URL = "https://script.google.com/macros/s/AKfycbwv4xFqOaxWwI1YWqXQazS_PsIqbGA0bcmiJTHoChxzO7SuzMBbGPoFABbqwrhSf60CIw/exec"; 
+       const DEFAULT_MONSTER_IMG = "https://cdn-icons-png.flaticon.com/512/2589/2589301.png";
 
         let namaSiswa = "";
         let antreanMonster = [], activeMonster = null;
@@ -184,6 +181,10 @@
         let deviceHeading = 0;
         let isDataLoaded = false;
         let isFirstSpawn = true;
+
+        // Koor Lapangan Virtual (dalam meter)
+        let playerX = 0, playerY = 0; 
+        let lastAccelZ = 0;
 
         function startUpGame() {
             while (!namaSiswa || namaSiswa.trim() === "") {
@@ -193,7 +194,11 @@
 
             nyalakanKameraAwal();
             aktifkanKompasHP();
-            mulaiTrackingGPS();
+            aktifkanPedometer();
+            muatSoalCloud();
+
+            // Loop Render UI secara kontinyu (60FPS)
+            setInterval(updateRenderRadar, 100);
         }
 
         function nyalakanKameraAwal() {
@@ -209,6 +214,28 @@
                     if (e.webkitCompassHeading) deviceHeading = e.webkitCompassHeading;
                     else if (e.alpha) deviceHeading = 360 - e.alpha;
                 }, true);
+            }
+        }
+
+        // DETEKSI LANGKAH KAKI SISWA (STEP DETECTOR STABIL)
+        function aktifkanPedometer() {
+            if (window.DeviceMotionEvent) {
+                window.addEventListener('devicemotion', function(e) {
+                    let acc = e.accelerationIncludingGravity;
+                    if (!acc) return;
+
+                    let currentZ = acc.z || 0;
+                    let deltaZ = Math.abs(currentZ - lastAccelZ);
+
+                    // Jika HP diayun saat berjalan (ambang batas guncangan)
+                    if (deltaZ > 3.5) { 
+                        let angleRad = deviceHeading * Math.PI / 180;
+                        // Tambahkan perpindahan 0.6 meter setiap 1 langkah kaki
+                        playerX += 0.6 * Math.sin(angleRad);
+                        playerY += 0.6 * Math.cos(angleRad);
+                    }
+                    lastAccelZ = currentZ;
+                });
             }
         }
 
@@ -241,17 +268,14 @@
                 }));
 
                 isDataLoaded = true;
-                
-                if (smoothLat !== null && smoothLon !== null && !activeMonster) {
-                    spawnNextMonster();
-                }
+                spawnNextMonster();
             } catch (err) {
                 console.error("Gagal sinkronisasi:", err);
                 document.getElementById("jarak-text").innerText = "Koneksi Bermasalah";
             }
         }
 
-        // KUNCI TITIK MONSTER MENGGUNAKAN VEKTOR METER TETAP (BEBAS LOMPATAN GPS)
+        // KUNCI LOKASI MONSTER PADA KOORDINAT METER TETAP DI LAPANGAN VIRTUAL
         function spawnNextMonster() {
             if (antreanMonster.length === 0) {
                 activeMonster = null;
@@ -259,66 +283,38 @@
                 return;
             }
 
-            if (smoothLat === null || smoothLon === null) return;
-
             let nextData = antreanMonster.shift();
-            let offsetX = 0, offsetY = 0;
+            let mX = 0, mY = 0;
 
             if (isFirstSpawn) {
-                // Monster #1 tepat di depan siswa (0 meter)
-                offsetX = 0;
-                offsetY = 0;
+                // Monster #1 berada 1.5 meter di depan posisi berdiri awal
+                let headingRad = deviceHeading * Math.PI / 180;
+                mX = playerX + 1.5 * Math.sin(headingRad);
+                mY = playerY + 1.5 * Math.cos(headingRad);
                 isFirstSpawn = false;
             } else {
-                // Monster berikutnya terkunci pasti 3 s.d 5 meter dari posisi spawn
+                // Monster berikutnya ditempatkan 3 s.d 5 meter di sekeliling siswa
                 let jarakMeter = 3 + Math.random() * 2; 
                 let sudut = Math.random() * 2 * Math.PI;
 
-                offsetX = jarakMeter * Math.sin(sudut);
-                offsetY = jarakMeter * Math.cos(sudut);
+                mX = playerX + jarakMeter * Math.sin(sudut);
+                mY = playerY + jarakMeter * Math.cos(sudut);
             }
 
-            // Kunci posisi monster berdasarkan koordinat patokan saat ini + offset meter tetap
+            // KUNCI ABSOLUT! Monster ini posisinya TIDAK AKAN BERUBAH SAMA SEKALI
             activeMonster = {
                 ...nextData,
-                spawnLat: smoothLat,
-                spawnLon: smoothLon,
-                offsetX: offsetX,
-                offsetY: offsetY
+                posX: mX,
+                posY: mY
             };
 
             document.getElementById("target-count").innerText = `${totalTargetSelesai}/${totalMonsterAwal}`;
         }
 
-        function mulaiTrackingGPS() {
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(prosesLokasiPemain, function(err){
-                    document.getElementById("jarak-text").innerText = "Gagal Mengakses GPS";
-                }, { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
-            } else { alert("GPS tidak didukung HP ini!"); }
-        }
-
-        async function prosesLokasiPemain(position) {
-            rawLat = position.coords.latitude;
-            rawLon = position.coords.longitude;
-
-            // FILTER LOW-PASS MENGHALUSKAN LOMPATAN GPS (SMOOTHING)
-            if (smoothLat === null || smoothLon === null) {
-                smoothLat = rawLat;
-                smoothLon = rawLon;
-            } else {
-                smoothLat = smoothLat + (rawLat - smoothLat) * 0.2;
-                smoothLon = smoothLon + (rawLon - smoothLon) * 0.2;
-            }
-
+        function updateRenderRadar() {
             if (!isDataLoaded) {
                 document.getElementById("jarak-text").innerText = "Mengunduh Soal...";
-                await muatSoalCloud(); 
-                return; 
-            }
-
-            if (!activeMonster && antreanMonster.length > 0) {
-                spawnNextMonster();
+                return;
             }
 
             const sonarContainer = document.getElementById("sonar-monsters-container");
@@ -326,29 +322,21 @@
 
             if (!activeMonster) {
                 document.getElementById("jarak-text").innerText = "SEMUA TARGET DITAKLUKKAN!";
-                document.getElementById("petunjuk-text").innerText = "Luar biasa! Seluruh monster matematika telah dikalahkan.";
+                document.getElementById("petunjuk-text").innerText = "Luar biasa! Seluruh monster telah dikalahkan.";
                 document.getElementById("monster-ar").style.display = "none";
                 return;
             }
 
-            // PERHITUNGAN VEKTOR KETAT: SISWA BERGERAK MENDEKATI PATOKAN MONSTER
-            const METERS_PER_DEGREE_LAT = 111139;
-            const METERS_PER_DEGREE_LON = 111139 * Math.cos(smoothLat * Math.PI / 180);
+            // HITUNG VEKTOR RELATIF DARI SISWA KE MONSTER
+            let dx = activeMonster.posX - playerX;
+            let dy = activeMonster.posY - playerY;
 
-            // Jarak gerak siswa dari titik awal spawn monster
-            let playerRelX = (smoothLon - activeMonster.spawnLon) * METERS_PER_DEGREE_LON;
-            let playerRelY = (smoothLat - activeMonster.spawnLat) * METERS_PER_DEGREE_LAT;
-
-            // Vektor relatif monster terhadap siswa saat ini
-            let relX = activeMonster.offsetX - playerRelX;
-            let relY = activeMonster.offsetY - playerRelY;
-
-            let d = Math.sqrt(relX * relX + relY * relY);
+            let d = Math.sqrt(dx * dx + dy * dy);
             document.getElementById("jarak-text").innerText = `${d.toFixed(1)} Meter`;
 
-            let monsterBearing = (Math.atan2(relX, relY) * 180 / Math.PI + 360) % 360;
+            let monsterBearing = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360;
 
-            const RADAR_MAX_JARAK = 15, RADAR_RADIUS_PX = 80; 
+            const RADAR_MAX_JARAK = 10, RADAR_RADIUS_PX = 80; 
 
             if (d <= RADAR_MAX_JARAK) {
                 let ratio = d / RADAR_MAX_JARAK;
@@ -367,16 +355,16 @@
             let angleDiff = Math.abs(monsterBearing - deviceHeading);
             if (angleDiff > 180) angleDiff = 360 - angleDiff;
 
-            // Monster Muncul di Kamera jika jarak <= 4 meter dan HP dihadapkan tepat ke monster
-            if (d <= 4 && angleDiff <= 30) {
+            // Tampilkan monster jika jarak dekat (<= 2.5 meter) & mengarah ke kerucut pandang
+            if (d <= 2.5 && angleDiff <= 30) {
                 const imgM = document.getElementById("monster-ar");
                 imgM.src = activeMonster.gambar;
                 imgM.style.display = "block";
                 document.getElementById("petunjuk-text").innerText = "🎯 TARGET TERKUNCI! Ketuk monster untuk bertarung!";
                 document.getElementById("petunjuk-text").style.color = "#00ffbb";
-            } else if (d <= 4) {
+            } else if (d <= 2.5) {
                 document.getElementById("monster-ar").style.display = "none";
-                document.getElementById("petunjuk-text").innerText = "⚠️ Monster sangat dekat! Putar badan/HP kamu untuk membidik!";
+                document.getElementById("petunjuk-text").innerText = "⚠️ Monster sangat dekat! Putar HP kamu ke arah titik merah!";
                 document.getElementById("petunjuk-text").style.color = "#f59e0b";
             } else {
                 document.getElementById("monster-ar").style.display = "none";
