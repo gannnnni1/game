@@ -211,64 +211,74 @@
             }
         }
 
-        async function muatSoalCloud() {
-            try {
-                let res = await fetch(API_URL);
-                let databaseMonster = await res.json();
-                
-                let rawKeys = Object.keys(databaseMonster);
-                if (rawKeys.length === 0) return;
+      async function muatSoalCloud() {
+    try {
+        let res = await fetch(API_URL);
+        let databaseMonster = await res.json();
+        
+        let rawKeys = Object.keys(databaseMonster);
+        if (rawKeys.length === 0) return;
 
-                let firstKey = rawKeys[0];
-                let restKeys = rawKeys.slice(1);
+        // 1. Pisahkan Monster Pertama dan Sisa Monster
+        let firstKey = rawKeys[0];
+        let restKeys = rawKeys.slice(1);
 
-                // Acak sisa monster (Urutan acak untuk tiap siswa)
-                for (let i = restKeys.length - 1; i > 0; i--) {
-                    let j = Math.floor(Math.random() * (i + 1));
-                    [restKeys[i], restKeys[j]] = [restKeys[j], restKeys[i]];
-                }
-
-                let finalKeys = [firstKey, ...restKeys];
-                totalMonsterAwal = finalKeys.length;
-
-                antreanMonster = [];
-                let refLat = centerLat, refLon = centerLon;
-
-                for (let i = 0; i < finalKeys.length; i++) {
-                    let id = finalKeys[i];
-                    let finalLat, finalLon;
-
-                    if (i === 0) {
-                        finalLat = centerLat; finalLon = centerLon; // 0 meter dari tempat berdiri
-                    } else {
-                        const konversiLat = 111000, konversiLon = 109800;
-                        let sudut = Math.random() * 2 * Math.PI;
-                        let jarakMeter = 5 + Math.random() * 5; // Spasi berantai 5-10m
-
-                        finalLat = refLat + ((jarakMeter * Math.sin(sudut)) / konversiLat);
-                        finalLon = refLon + ((jarakMeter * Math.cos(sudut)) / konversiLon);
-                    }
-
-                    antreanMonster.push({
-                        id: id, lat: finalLat, lon: finalLon,
-                        nama: databaseMonster[id].nama,
-                        gambar: databaseMonster[id].gambar || DEFAULT_MONSTER_IMG,
-                        soal: databaseMonster[id].soal,
-                        gambarSoal: databaseMonster[id].gambarSoal || "",
-                        jawab: databaseMonster[id].jawab
-                    });
-
-                    refLat = finalLat; refLon = finalLon;
-                }
-
-                munculkanMonsterBerikutnya();
-                isDataLoaded = true;
-            } catch (err) {
-                console.error("Gagal sinkronisasi:", err);
-                document.getElementById("jarak-text").innerText = "Koneksi Bermasalah";
-            }
+        // 2. Acak Sisa Monster
+        for (let i = restKeys.length - 1; i > 0; i--) {
+            let j = Math.floor(Math.random() * (i + 1));
+            [restKeys[i], restKeys[j]] = [restKeys[j], restKeys[i]];
         }
 
+        let finalKeys = [firstKey, ...restKeys];
+        totalMonsterAwal = finalKeys.length;
+
+        antreanMonster = [];
+
+        // Faktor konversi presisi (Meter ke Derajat)
+        const METERS_PER_DEGREE_LAT = 111139; // ~111km per derajat latitude
+        const METERS_PER_DEGREE_LON = 111139 * Math.cos(centerLat * Math.PI / 180);
+
+        for (let i = 0; i < finalKeys.length; i++) {
+            let id = finalKeys[i];
+            let finalLat, finalLon;
+
+            if (i === 0) {
+                // Monster #1 TEPAT di titik berdiri siswa (0 Meter)
+                finalLat = centerLat;
+                finalLon = centerLon;
+            } else {
+                // Monster #2, #3, dst DIBATASI dekat: 3 sampai 8 Meter saja dari siswa!
+                let jarakMeter = 3 + Math.random() * 5; // Radius dekat: 3m s.d 8m
+                let sudut = Math.random() * 2 * Math.PI; // Arah acak 360 derajat
+
+                // Hitung offset koordinat LANGSUNG dari posisi berdiri siswa (centerLat & centerLon)
+                let deltaLat = (jarakMeter * Math.cos(sudut)) / METERS_PER_DEGREE_LAT;
+                let deltaLon = (jarakMeter * Math.sin(sudut)) / METERS_PER_DEGREE_LON;
+
+                finalLat = centerLat + deltaLat;
+                finalLon = centerLon + deltaLon;
+            }
+
+            antreanMonster.push({
+                id: id, 
+                lat: finalLat, 
+                lon: finalLon,
+                nama: databaseMonster[id].nama,
+                gambar: databaseMonster[id].gambar || DEFAULT_MONSTER_IMG,
+                soal: databaseMonster[id].soal,
+                gambarSoal: databaseMonster[id].gambarSoal || "",
+                jawab: databaseMonster[id].jawab
+            });
+        }
+
+        munculkanMonsterBerikutnya();
+        isDataLoaded = true;
+    } catch (err) {
+        console.error("Gagal sinkronisasi:", err);
+        document.getElementById("jarak-text").innerText = "Koneksi Bermasalah";
+    }
+}
+        
         function munculkanMonsterBerikutnya() {
             if (antreanMonster.length > 0) {
                 activeMonster = antreanMonster.shift();
