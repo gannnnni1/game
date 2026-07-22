@@ -47,12 +47,6 @@
             overflow: hidden; margin: 8px 0;
         }
 
-        .camera-cone {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: conic-gradient(from -30deg at 50% 50%, rgba(0, 255, 255, 0.35) 0deg, rgba(0, 255, 255, 0.35) 60deg, transparent 60deg);
-            pointer-events: none; z-index: 2;
-        }
-
         .sonar-sweep {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: conic-gradient(from 0deg, rgba(0,255,102,0.3) 0deg, transparent 90deg);
@@ -94,31 +88,26 @@
             to { transform: translate(-50%, -50%) translateY(-20px) scale(1.05); }
         }
 
-        .battle-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(26, 32, 44, 0.95); align-items: center; justify-content: center; z-index: 10;
+        /* OVERLAY START & BATTLE */
+        .overlay-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95); display: flex; align-items: center; justify-content: center; z-index: 10;
         }
-        .battle-box {
-            background: #2d3748; padding: 20px; border-radius: 12px; width: 85%; max-width: 380px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 2px solid #e53e3e;
-            max-height: 90vh; overflow-y: auto;
-        }
-        
-        #soal-image {
-            width: 100%; max-height: 200px; object-fit: contain;
-            border-radius: 8px; margin-bottom: 12px; border: 1px solid #4a5568; display: none;
+        .box-card {
+            background: #1e293b; padding: 25px; border-radius: 16px; width: 85%; max-width: 380px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.7); border: 2px solid #3b82f6; text-align: center;
         }
 
         input {
-            width: 80%; padding: 12px; font-size: 18px; margin-bottom: 15px;
-            background: #1a202c; color: white; border: 2px solid #4a5568; border-radius: 6px; text-align: center;
+            width: 80%; padding: 12px; font-size: 16px; margin: 10px 0;
+            background: #0f172a; color: white; border: 2px solid #475569; border-radius: 8px; text-align: center;
         }
         button {
-            background: #e53e3e; color: white; border: none; padding: 12px;
-            font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer;
-            text-transform: uppercase; letter-spacing: 1px;
+            background: #3b82f6; color: white; border: none; padding: 12px 20px;
+            font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer;
+            text-transform: uppercase; width: 100%; margin-top: 10px;
         }
-        button:hover { background: #c53030; }
+        button:hover { background: #2563eb; }
     </style>
 </head>
 <body>
@@ -126,21 +115,31 @@
     <video id="webcam" autoplay playsinline></video>
     <img id="monster-ar" onclick="picuPertarungan()" src="" alt="Monster AR">
 
+    <!-- OVERLAY START (Memastikan sensor & kamera diizinkan HP) -->
+    <div class="overlay-screen" id="start-screen">
+        <div class="box-card">
+            <h2 style="color: #3b82f6; margin-top: 0;">🎮 AR Target Hunter</h2>
+            <p style="font-size: 14px; color: #cbd5e1;">Masukkan nama untuk memulai perburuan monster math!</p>
+            <input type="text" id="input-nama" placeholder="Nama Lengkap Pemain..."><br>
+            <button onclick="mulaiGame()">🚀 MULAI PETUALANGAN</button>
+        </div>
+    </div>
+
+    <!-- UI LAYER GAME -->
     <div class="ui-layer">
         <div class="ui-element">
             <h1>🎯 Math AR Target Hunter</h1>
             <div class="stats-box">
-                <div>Pemain: <span id="nama-val" style="color: #4299e1;">...</span></div>
-                <div>Poin: <span id="poin-val" style="color: #48bb78;">0</span></div>
-                <div>Target: <span id="target-count" style="color: #ed8936;">0/0</span></div>
+                <div>Pemain: <span id="nama-val" style="color: #60a5fa;">...</span></div>
+                <div>Poin: <span id="poin-val" style="color: #4ade80;">0</span></div>
+                <div>Target: <span id="target-count" style="color: #fb923c;">0/0</span></div>
             </div>
         </div>
 
         <div class="ui-element sonar-container">
-            <div style="font-weight: bold; color: #00ff66; font-size: 13px; letter-spacing: 1px;">📡 AR SCANNER RADAR (60°)</div>
+            <div style="font-weight: bold; color: #00ff66; font-size: 13px; letter-spacing: 1px;">📡 AR SCANNER RADAR (MAX 10M)</div>
             
-            <div class="sonar-screen" id="sonar-screen">
-                <div class="camera-cone" id="camera-cone"></div>
+            <div class="sonar-screen">
                 <div class="sonar-sweep"></div>
                 <div class="sonar-ring ring-1"></div>
                 <div class="sonar-ring ring-2"></div>
@@ -153,27 +152,35 @@
         </div>
     </div>
 
-    <!-- POP-UP PERTARUNGAN -->
-    <div class="battle-overlay" id="battle-screen">
-        <div class="battle-box">
-            <h2 id="battle-monster-name" style="color: #e53e3e; margin: 0 0 10px 0;">Monster</h2>
-            <p id="soal-text" style="font-size: 16px; background: #1a202c; padding: 12px; border-radius: 8px; font-weight: bold; text-align: left; border-left: 5px solid #e53e3e; margin-bottom: 10px;"></p>
+    <!-- POP-UP BATTLE -->
+    <div class="overlay-screen" id="battle-screen" style="display: none;">
+        <div class="box-card" style="border-color: #ef4444;">
+            <h2 id="battle-monster-name" style="color: #ef4444; margin-top: 0;">Monster</h2>
+            <p id="soal-text" style="font-size: 16px; background: #0f172a; padding: 12px; border-radius: 8px; font-weight: bold; text-align: left; border-left: 5px solid #ef4444; margin-bottom: 10px;"></p>
             
-            <img id="soal-image" src="" alt="Gambar Soal">
+            <img id="soal-image" src="" alt="Gambar Soal" style="width:100%; max-height:180px; object-fit:contain; display:none; margin-bottom:10px;">
 
-            <input type="number" id="jawaban-input" placeholder="Masukkan jawaban angka..." step="any"><br>
+            <input type="number" id="jawaban-input" placeholder="Jawaban angka..." step="any"><br>
             
-            <div style="display: flex; gap: 10px; width: 87%; margin: 0 auto;">
-                <button onclick="serangMonster()" style="flex: 1; padding: 12px 5px;">⚔️ SERANG</button>
-                <button onclick="abaikanMonster()" style="flex: 1; background: #4a5568; padding: 12px 5px;">🏃 ABAIKAN</button>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button onclick="serangMonster()" style="background: #ef4444;">⚔️ SERANG</button>
+                <button onclick="abaikanMonster()" style="background: #64748b;">🏃 ABAIKAN</button>
             </div>
         </div>
     </div>
 
     <script>
-        // MASUKKAN URL APPS SCRIPT KELOLAANMU DI SINI
-          const API_URL = "https://script.google.com/macros/s/AKfycbwv4xFqOaxWwI1YWqXQazS_PsIqbGA0bcmiJTHoChxzO7SuzMBbGPoFABbqwrhSf60CIw/exec"; 
-       const DEFAULT_MONSTER_IMG = "https://cdn-icons-png.flaticon.com/512/2589/2589301.png";
+        // Ganti dengan URL Apps Script kamu jika ada. Jika kosong, game tetap jalan pakai Soal Default!
+         const API_URL = "https://script.google.com/macros/s/AKfycbwv4xFqOaxWwI1YWqXQazS_PsIqbGA0bcmiJTHoChxzO7SuzMBbGPoFABbqwrhSf60CIw/exec"; 
+        const DEFAULT_MONSTER_IMG = "https://cdn-icons-png.flaticon.com/512/2589/2589301.png";
+        const MAX_MONSTER_DISTANCE = 10.0;
+
+        // BACKUP DATA JIKA API TIDAK TERHUBUNG
+        const FALLBACK_DATABASE = {
+            "M1": { nama: "Slime Math", soal: "Berapakah hasil dari 12 + 15?", jawab: 27, gambar: DEFAULT_MONSTER_IMG },
+            "M2": { nama: "Goblin Angka", soal: "Berapakah 8 x 7?", jawab: 56, gambar: DEFAULT_MONSTER_IMG },
+            "M3": { nama: "Naga Aljabar", soal: "Jika 2x = 10, berapakah x?", jawab: 5, gambar: DEFAULT_MONSTER_IMG }
+        };
 
         let namaSiswa = "";
         let antreanMonster = [], activeMonster = null;
@@ -182,100 +189,93 @@
         let isDataLoaded = false;
         let isFirstSpawn = true;
 
-        // Koor Lapangan Virtual (dalam meter)
         let playerX = 0, playerY = 0; 
         let lastAccelZ = 0;
 
-        function startUpGame() {
-            while (!namaSiswa || namaSiswa.trim() === "") {
-                namaSiswa = prompt("Masukkan Nama Lengkap Kamu untuk Memulai Petualangan:");
-            }
+        async function mulaiGame() {
+            const inputField = document.getElementById("input-nama");
+            if (!inputField.value.trim()) return alert("Masukkan namamu terlebih dahulu!");
+            
+            namaSiswa = inputField.value.trim();
             document.getElementById("nama-val").innerText = namaSiswa;
+            document.getElementById("start-screen").style.display = "none";
 
-            nyalakanKameraAwal();
-            aktifkanKompasHP();
-            aktifkanPedometer();
+            await mintaIzinSensorDanKamera();
             muatSoalCloud();
-
-            // Loop Render UI secara kontinyu (60FPS)
             setInterval(updateRenderRadar, 100);
         }
 
-        function nyalakanKameraAwal() {
-            const video = document.getElementById("webcam");
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-                .then(stream => { video.srcObject = stream; })
-                .catch(err => { alert("Izin kamera diperlukan!"); });
-        }
-
-        function aktifkanKompasHP() {
-            if (window.DeviceOrientationEvent) {
-                window.addEventListener('deviceorientation', function(e) {
-                    if (e.webkitCompassHeading) deviceHeading = e.webkitCompassHeading;
-                    else if (e.alpha) deviceHeading = 360 - e.alpha;
-                }, true);
+        async function mintaIzinSensorDanKamera() {
+            // 1. Kamera
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+                document.getElementById("webcam").srcObject = stream;
+            } catch (e) {
+                alert("Kamera tidak dapat diakses!");
             }
-        }
 
-        // DETEKSI LANGKAH KAKI SISWA (STEP DETECTOR STABIL)
-        function aktifkanPedometer() {
+            // 2. Kompas (Izin Khusus iOS/Android)
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const response = await DeviceOrientationEvent.requestPermission();
+                    if (response === 'granted') window.addEventListener('deviceorientation', tanganiOrientasi, true);
+                } catch (e) { console.error(e); }
+            } else {
+                window.addEventListener('deviceorientation', tanganiOrientasi, true);
+            }
+
+            // 3. Pedometer (Langkah Kaki)
             if (window.DeviceMotionEvent) {
                 window.addEventListener('devicemotion', function(e) {
                     let acc = e.accelerationIncludingGravity;
                     if (!acc) return;
-
-                    let currentZ = acc.z || 0;
-                    let deltaZ = Math.abs(currentZ - lastAccelZ);
-
-                    // Jika HP diayun saat berjalan (ambang batas guncangan)
+                    let deltaZ = Math.abs((acc.z || 0) - lastAccelZ);
                     if (deltaZ > 3.5) { 
                         let angleRad = deviceHeading * Math.PI / 180;
-                        // Tambahkan perpindahan 0.6 meter setiap 1 langkah kaki
                         playerX += 0.6 * Math.sin(angleRad);
                         playerY += 0.6 * Math.cos(angleRad);
                     }
-                    lastAccelZ = currentZ;
+                    lastAccelZ = acc.z || 0;
                 });
             }
         }
 
-        async function muatSoalCloud() {
-            try {
-                let res = await fetch(API_URL);
-                let databaseMonster = await res.json();
-                
-                let rawKeys = Object.keys(databaseMonster);
-                if (rawKeys.length === 0) return;
-
-                let firstKey = rawKeys[0];
-                let restKeys = rawKeys.slice(1);
-
-                for (let i = restKeys.length - 1; i > 0; i--) {
-                    let j = Math.floor(Math.random() * (i + 1));
-                    [restKeys[i], restKeys[j]] = [restKeys[j], restKeys[i]];
-                }
-
-                let finalKeys = [firstKey, ...restKeys];
-                totalMonsterAwal = finalKeys.length;
-
-                antreanMonster = finalKeys.map(id => ({
-                    id: id,
-                    nama: databaseMonster[id].nama,
-                    gambar: databaseMonster[id].gambar || DEFAULT_MONSTER_IMG,
-                    soal: databaseMonster[id].soal,
-                    gambarSoal: databaseMonster[id].gambarSoal || "",
-                    jawab: databaseMonster[id].jawab
-                }));
-
-                isDataLoaded = true;
-                spawnNextMonster();
-            } catch (err) {
-                console.error("Gagal sinkronisasi:", err);
-                document.getElementById("jarak-text").innerText = "Koneksi Bermasalah";
-            }
+        function tanganiOrientasi(e) {
+            if (e.webkitCompassHeading) deviceHeading = e.webkitCompassHeading;
+            else if (e.alpha) deviceHeading = 360 - e.alpha;
         }
 
-        // KUNCI LOKASI MONSTER PADA KOORDINAT METER TETAP DI LAPANGAN VIRTUAL
+        async function muatSoalCloud() {
+            let databaseMonster = null;
+
+            if (API_URL && API_URL.startsWith("http")) {
+                try {
+                    let res = await fetch(API_URL);
+                    databaseMonster = await res.json();
+                } catch (err) {
+                    console.log("Menggunakan database lokal (fallback)...");
+                    databaseMonster = FALLBACK_DATABASE;
+                }
+            } else {
+                databaseMonster = FALLBACK_DATABASE;
+            }
+
+            let keys = Object.keys(databaseMonster);
+            totalMonsterAwal = keys.length;
+
+            antreanMonster = keys.map(id => ({
+                id: id,
+                nama: databaseMonster[id].nama,
+                gambar: databaseMonster[id].gambar || DEFAULT_MONSTER_IMG,
+                soal: databaseMonster[id].soal,
+                gambarSoal: databaseMonster[id].gambarSoal || "",
+                jawab: databaseMonster[id].jawab
+            }));
+
+            isDataLoaded = true;
+            spawnNextMonster();
+        }
+
         function spawnNextMonster() {
             if (antreanMonster.length === 0) {
                 activeMonster = null;
@@ -284,36 +284,29 @@
             }
 
             let nextData = antreanMonster.shift();
+            let headingRad = deviceHeading * Math.PI / 180;
             let mX = 0, mY = 0;
 
             if (isFirstSpawn) {
-                // Monster #1 berada 1.5 meter di depan posisi berdiri awal
-                let headingRad = deviceHeading * Math.PI / 180;
+                // SPAWN PERTAMA: Selalu tepat 1.5 meter DI DEPAN HP pemain saat ini
                 mX = playerX + 1.5 * Math.sin(headingRad);
                 mY = playerY + 1.5 * Math.cos(headingRad);
                 isFirstSpawn = false;
             } else {
-                // Monster berikutnya ditempatkan 3 s.d 5 meter di sekeliling siswa
-                let jarakMeter = 3 + Math.random() * 2; 
+                // SPAWN BERIKUTNYA: Jarak acak 3 - 6 meter dari pemain
+                let jarakMeter = 3 + Math.random() * 3; 
                 let sudut = Math.random() * 2 * Math.PI;
-
                 mX = playerX + jarakMeter * Math.sin(sudut);
                 mY = playerY + jarakMeter * Math.cos(sudut);
             }
 
-            // KUNCI ABSOLUT! Monster ini posisinya TIDAK AKAN BERUBAH SAMA SEKALI
-            activeMonster = {
-                ...nextData,
-                posX: mX,
-                posY: mY
-            };
-
+            activeMonster = { ...nextData, posX: mX, posY: mY };
             document.getElementById("target-count").innerText = `${totalTargetSelesai}/${totalMonsterAwal}`;
         }
 
         function updateRenderRadar() {
             if (!isDataLoaded) {
-                document.getElementById("jarak-text").innerText = "Mengunduh Soal...";
+                document.getElementById("jarak-text").innerText = "Memuat Game...";
                 return;
             }
 
@@ -327,17 +320,26 @@
                 return;
             }
 
-            // HITUNG VEKTOR RELATIF DARI SISWA KE MONSTER
             let dx = activeMonster.posX - playerX;
             let dy = activeMonster.posY - playerY;
-
             let d = Math.sqrt(dx * dx + dy * dy);
+
+            // LOGIKA PEMBATAS MAX 10 METER
+            if (d > MAX_MONSTER_DISTANCE) {
+                let ratio = MAX_MONSTER_DISTANCE / d;
+                activeMonster.posX = playerX + (dx * ratio);
+                activeMonster.posY = playerY + (dy * ratio);
+                dx = activeMonster.posX - playerX;
+                dy = activeMonster.posY - playerY;
+                d = MAX_MONSTER_DISTANCE;
+            }
+
             document.getElementById("jarak-text").innerText = `${d.toFixed(1)} Meter`;
 
             let monsterBearing = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360;
-
             const RADAR_MAX_JARAK = 10, RADAR_RADIUS_PX = 80; 
 
+            // RENDER BLIP RED
             if (d <= RADAR_MAX_JARAK) {
                 let ratio = d / RADAR_MAX_JARAK;
                 let distPx = ratio * RADAR_RADIUS_PX;
@@ -355,8 +357,8 @@
             let angleDiff = Math.abs(monsterBearing - deviceHeading);
             if (angleDiff > 180) angleDiff = 360 - angleDiff;
 
-            // Tampilkan monster jika jarak dekat (<= 2.5 meter) & mengarah ke kerucut pandang
-            if (d <= 2.5 && angleDiff <= 30) {
+            // DISPLAY MONSTER
+            if (d <= 2.5 && angleDiff <= 35) {
                 const imgM = document.getElementById("monster-ar");
                 imgM.src = activeMonster.gambar;
                 imgM.style.display = "block";
@@ -364,7 +366,7 @@
                 document.getElementById("petunjuk-text").style.color = "#00ffbb";
             } else if (d <= 2.5) {
                 document.getElementById("monster-ar").style.display = "none";
-                document.getElementById("petunjuk-text").innerText = "⚠️ Monster sangat dekat! Putar HP kamu ke arah titik merah!";
+                document.getElementById("petunjuk-text").innerText = "⚠️ Monster sangat dekat! Putar HP ke arah titik merah!";
                 document.getElementById("petunjuk-text").style.color = "#f59e0b";
             } else {
                 document.getElementById("monster-ar").style.display = "none";
@@ -392,7 +394,6 @@
         function abaikanMonster() {
             document.getElementById("battle-screen").style.display = "none";
             document.getElementById("monster-ar").style.display = "none";
-            
             alert(`🏃 Kamu mengabaikan ${activeMonster.nama}. Mencari sasaran baru...`);
             spawnNextMonster();
         }
@@ -403,28 +404,26 @@
 
             if (Math.abs(jawabUser - activeMonster.jawab) < 0.01) {
                 alert(`💥 DAR! ${activeMonster.nama} hancur. +100 Poin!`);
-                
                 totalPoin += 100; 
                 totalTargetSelesai += 1;
                 document.getElementById("poin-val").innerText = totalPoin;
                 document.getElementById("battle-screen").style.display = "none";
                 document.getElementById("monster-ar").style.display = "none";
 
-                try {
-                    await fetch(API_URL, {
-                        method: "POST",
-                        body: JSON.stringify({ action: "update_skor", nama: namaSiswa, poin: totalPoin })
-                    });
-                } catch (e) { console.error(e); }
+                if (API_URL && API_URL.startsWith("http")) {
+                    try {
+                        await fetch(API_URL, {
+                            method: "POST",
+                            body: JSON.stringify({ action: "update_skor", nama: namaSiswa, poin: totalPoin })
+                        });
+                    } catch (e) { console.error(e); }
+                }
 
                 spawnNextMonster();
-
             } else {
                 alert("🛡️ Meleset! Jawabanmu salah, hitung kembali dengan cermat.");
             }
         }
-
-        window.onload = startUpGame;
     </script>
 </body>
 </html>
